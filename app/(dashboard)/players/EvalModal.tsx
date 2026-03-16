@@ -46,8 +46,9 @@ export default function EvalModal({ players, evals, initialPlayerId, onClose }: 
   const [vals, setVals] = useState<Record<SkillKey, number>>({
     ball_handling: 5, shooting: 5, passing: 5, defense: 5, athleticism: 5, coachability: 5,
   })
-  const [notes, setNotes] = useState('')
-  const [error, setError] = useState('')
+  const [notes, setNotes]     = useState('')
+  const [evalDate, setEvalDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [error, setError]     = useState('')
 
   const { mutateAsync, isPending } = useCreateEvaluation()
 
@@ -83,7 +84,7 @@ export default function EvalModal({ players, evals, initialPlayerId, onClose }: 
     setError('')
     try {
       await mutateAsync({
-        player_id:    selectedId,
+        player_id:     selectedId,
         ball_handling: vals.ball_handling,
         shooting:      vals.shooting,
         passing:       vals.passing,
@@ -92,7 +93,8 @@ export default function EvalModal({ players, evals, initialPlayerId, onClose }: 
         coachability:  vals.coachability,
         overall_avg:   avg,
         grade,
-        notes: notes.trim() || null,
+        notes:         notes.trim() || null,
+        evaluated_at:  new Date(evalDate + 'T12:00:00').toISOString(),
       })
       onClose()
     } catch (err) {
@@ -118,20 +120,32 @@ export default function EvalModal({ players, evals, initialPlayerId, onClose }: 
 
         {/* Scrollable body */}
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
-          {/* Player selector */}
-          <div>
-            <label className="block mb-1.5" style={labelStyle}>Player</label>
-            <select
-              value={selectedId}
-              onChange={e => setSelectedId(e.target.value)}
-              className="sp-input"
-            >
-              {players.map(p => (
-                <option key={p.id} value={p.id} style={{ backgroundColor: '#0E1520' }}>
-                  {p.first_name} {p.last_name ?? ''}
-                </option>
-              ))}
-            </select>
+          {/* Player + Date row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block mb-1.5" style={labelStyle}>Player</label>
+              <select
+                value={selectedId}
+                onChange={e => setSelectedId(e.target.value)}
+                className="sp-input"
+              >
+                {players.map(p => (
+                  <option key={p.id} value={p.id} style={{ backgroundColor: '#0E1520' }}>
+                    {p.first_name} {p.last_name ?? ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block mb-1.5" style={labelStyle}>Eval Date</label>
+              <input
+                type="date"
+                value={evalDate}
+                onChange={e => setEvalDate(e.target.value)}
+                className="sp-input"
+                style={{ colorScheme: 'dark' }}
+              />
+            </div>
           </div>
 
           {/* Skill sliders */}

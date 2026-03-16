@@ -34,11 +34,24 @@ function PlayerCard({
   onDetail: () => void
   onEval: (e: React.MouseEvent) => void
 }) {
-  const color      = PLAYER_COLORS[index % PLAYER_COLORS.length]
+  const color = PLAYER_COLORS[index % PLAYER_COLORS.length]
+  // sorted newest → oldest
   const playerEvals = evals
     .filter(e => e.player_id === player.id)
     .sort((a, b) => new Date(b.evaluated_at).getTime() - new Date(a.evaluated_at).getTime())
-  const latest = playerEvals[0] ?? null
+
+  const [evalIdx, setEvalIdx] = useState(0)
+  const shown = playerEvals[evalIdx] ?? null
+  const total = playerEvals.length
+
+  function goPrev(e: React.MouseEvent) {
+    e.stopPropagation()
+    setEvalIdx(i => Math.min(i + 1, total - 1)) // older
+  }
+  function goNext(e: React.MouseEvent) {
+    e.stopPropagation()
+    setEvalIdx(i => Math.max(i - 1, 0))         // newer
+  }
 
   return (
     <div
@@ -65,21 +78,21 @@ function PlayerCard({
             </p>
           </div>
         </div>
-        {latest?.grade && (
+        {shown?.grade && (
           <span
             className="text-base font-bold px-2.5 py-0.5 rounded-lg flex-shrink-0"
-            style={{ backgroundColor: `${gradeColor(latest.grade)}18`, color: gradeColor(latest.grade) }}
+            style={{ backgroundColor: `${gradeColor(shown.grade)}18`, color: gradeColor(shown.grade) }}
           >
-            {latest.grade}
+            {shown.grade}
           </span>
         )}
       </div>
 
       {/* Skill bars or no-eval placeholder */}
-      {latest ? (
+      {shown ? (
         <div className="space-y-2">
           {SKILLS.map(skill => {
-            const val = (latest[skill.key as SkillKey] ?? 0) as number
+            const val = (shown[skill.key as SkillKey] ?? 0) as number
             return (
               <div key={skill.key}>
                 <div className="flex justify-between mb-0.5">
@@ -111,11 +124,40 @@ function PlayerCard({
 
       {/* Footer */}
       <div className="flex items-center justify-between pt-1" style={{ borderTop: '1px solid rgba(241,245,249,0.06)' }}>
-        <p className="text-xs" style={{ color: 'rgba(241,245,249,0.3)' }}>
-          {latest
-            ? `${playerEvals.length} eval${playerEvals.length !== 1 ? 's' : ''} · Last: ${formatEvalDate(latest.evaluated_at)}`
-            : 'No evaluations'}
-        </p>
+        {/* Eval navigator */}
+        {total > 0 ? (
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={goPrev}
+              disabled={evalIdx >= total - 1}
+              className="text-xs px-1.5 py-0.5 rounded transition-opacity disabled:opacity-20 hover:opacity-60"
+              style={{ color: 'rgba(241,245,249,0.5)' }}
+              title="Older eval"
+            >
+              ←
+            </button>
+            <span className="text-xs" style={{ color: 'rgba(241,245,249,0.35)' }}>
+              {shown ? formatEvalDate(shown.evaluated_at) : '—'}
+            </span>
+            <button
+              onClick={goNext}
+              disabled={evalIdx <= 0}
+              className="text-xs px-1.5 py-0.5 rounded transition-opacity disabled:opacity-20 hover:opacity-60"
+              style={{ color: 'rgba(241,245,249,0.5)' }}
+              title="Newer eval"
+            >
+              →
+            </button>
+            {total > 1 && (
+              <span className="text-xs" style={{ color: 'rgba(241,245,249,0.2)' }}>
+                {evalIdx + 1}/{total}
+              </span>
+            )}
+          </div>
+        ) : (
+          <span className="text-xs" style={{ color: 'rgba(241,245,249,0.25)' }}>No evaluations</span>
+        )}
+
         <button
           onClick={e => { e.stopPropagation(); onEval(e) }}
           className="text-xs font-semibold transition-opacity hover:opacity-75"

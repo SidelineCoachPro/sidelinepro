@@ -28,6 +28,7 @@ export type CreateEvalInput = {
   overall_avg: number
   grade: string
   notes?: string | null
+  evaluated_at?: string
 }
 
 const supabase = createClient()
