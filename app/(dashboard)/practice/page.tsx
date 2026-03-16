@@ -11,10 +11,9 @@ const sections = [
   {
     href: '/practice/planner',
     title: 'Practice Planner',
-    description: 'Build full practice plans with drag-and-drop drill scheduling.',
+    description: 'Build full practice plans with AI generation or drag-and-drop scheduling.',
     color: '#38BDF8',
     icon: '📋',
-    soon: true,
   },
   {
     href: '/practice/templates',
