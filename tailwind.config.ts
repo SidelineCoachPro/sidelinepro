@@ -9,8 +9,13 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        "sp-bg": "#080C12",
+        "sp-card": "#0E1520",
+        "sp-orange": "#F7620A",
+        "sp-text": "#F1F5F9",
+      },
+      maxWidth: {
+        "auth": "440px",
       },
     },
   },

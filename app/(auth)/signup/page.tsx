@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client'
 
 const schema = z
   .object({
+    name: z.string().min(2, 'Name must be at least 2 characters'),
     email: z.string().email('Enter a valid email'),
     password: z.string().min(8, 'Password must be at least 8 characters'),
     confirmPassword: z.string(),
@@ -20,6 +21,9 @@ const schema = z
   })
 
 type FormData = z.infer<typeof schema>
+
+const labelStyle = { color: 'rgba(241,245,249,0.7)', fontSize: '13px', fontWeight: 500 }
+const mutedStyle = { color: 'rgba(241,245,249,0.45)' }
 
 export default function SignupPage() {
   const router = useRouter()
@@ -39,6 +43,7 @@ export default function SignupPage() {
       email: data.email,
       password: data.password,
       options: {
+        data: { full_name: data.name },
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     })
@@ -56,17 +61,23 @@ export default function SignupPage() {
 
   if (emailSent) {
     return (
-      <div className="text-center">
-        <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+      <div className="text-center py-4">
+        <div
+          className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4"
+          style={{ backgroundColor: 'rgba(247,98,10,0.15)' }}
+        >
+          <svg className="w-6 h-6 text-sp-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
           </svg>
         </div>
-        <h2 className="text-lg font-semibold text-gray-900">Check your email</h2>
-        <p className="mt-2 text-sm text-gray-500">
-          We sent a confirmation link to your email address. Click it to activate your account.
+        <h2 className="text-lg font-semibold text-sp-text">Check your email</h2>
+        <p className="mt-2 text-sm" style={mutedStyle}>
+          We sent a confirmation link to your email. Click it to activate your account.
         </p>
-        <Link href="/login" className="mt-4 inline-block text-sm text-orange-600 hover:text-orange-700 font-medium">
+        <Link
+          href="/login"
+          className="mt-5 inline-block text-sm font-medium text-sp-orange hover:opacity-80 transition-opacity"
+        >
           Back to sign in
         </Link>
       </div>
@@ -75,14 +86,31 @@ export default function SignupPage() {
 
   return (
     <>
-      <div className="mb-6 text-center">
-        <h2 className="text-xl font-semibold text-gray-900">Create your account</h2>
-        <p className="text-sm text-gray-500 mt-1">Start coaching smarter today</p>
+      <div className="mb-7 text-center">
+        <h2 className="text-xl font-semibold text-sp-text">Create your account</h2>
+        <p className="text-sm mt-1" style={mutedStyle}>Start coaching smarter today</p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="name" className="block mb-1.5" style={labelStyle}>
+            Full name
+          </label>
+          <input
+            {...register('name')}
+            id="name"
+            type="text"
+            autoComplete="name"
+            placeholder="Coach Johnson"
+            className="sp-input"
+          />
+          {errors.name && (
+            <p className="mt-1.5 text-xs text-red-400">{errors.name.message}</p>
+          )}
+        </div>
+
+        <div>
+          <label htmlFor="email" className="block mb-1.5" style={labelStyle}>
             Email
           </label>
           <input
@@ -91,13 +119,15 @@ export default function SignupPage() {
             type="email"
             autoComplete="email"
             placeholder="coach@example.com"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            className="sp-input"
           />
-          {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>}
+          {errors.email && (
+            <p className="mt-1.5 text-xs text-red-400">{errors.email.message}</p>
+          )}
         </div>
 
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="password" className="block mb-1.5" style={labelStyle}>
             Password
           </label>
           <input
@@ -105,15 +135,16 @@ export default function SignupPage() {
             id="password"
             type="password"
             autoComplete="new-password"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            placeholder="Min. 8 characters"
+            className="sp-input"
           />
           {errors.password && (
-            <p className="mt-1 text-xs text-red-600">{errors.password.message}</p>
+            <p className="mt-1.5 text-xs text-red-400">{errors.password.message}</p>
           )}
         </div>
 
         <div>
-          <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="confirmPassword" className="block mb-1.5" style={labelStyle}>
             Confirm password
           </label>
           <input
@@ -121,34 +152,35 @@ export default function SignupPage() {
             id="confirmPassword"
             type="password"
             autoComplete="new-password"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            className="sp-input"
           />
           {errors.confirmPassword && (
-            <p className="mt-1 text-xs text-red-600">{errors.confirmPassword.message}</p>
+            <p className="mt-1.5 text-xs text-red-400">{errors.confirmPassword.message}</p>
           )}
         </div>
 
         {authError && (
-          <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+          <div
+            className="rounded-lg p-3 text-sm text-red-400"
+            style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}
+          >
             {authError}
           </div>
         )}
 
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="w-full rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
+        <button type="submit" disabled={isSubmitting} className="sp-btn">
           {isSubmitting ? 'Creating account...' : 'Create account'}
         </button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-gray-500">
-        Already have an account?{' '}
-        <Link href="/login" className="font-medium text-orange-600 hover:text-orange-700">
-          Sign in
-        </Link>
-      </p>
+      <div style={{ borderTop: '1px solid rgba(241,245,249,0.07)', marginTop: '24px', paddingTop: '24px' }}>
+        <p className="text-center text-sm" style={mutedStyle}>
+          Already have an account?{' '}
+          <Link href="/login" className="font-medium text-sp-orange hover:opacity-80 transition-opacity">
+            Sign in
+          </Link>
+        </p>
+      </div>
     </>
   )
 }

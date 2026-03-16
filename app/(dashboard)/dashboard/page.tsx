@@ -8,40 +8,22 @@ export default async function DashboardPage() {
   } = await supabase.auth.getUser()
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <span className="text-xl font-bold text-orange-500">SidelinePro</span>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-500">{user?.email}</span>
-            <form action={signOut}>
-              <button
-                type="submit"
-                className="text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors"
-              >
-                Sign out
-              </button>
-            </form>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="mt-2 text-gray-500">Welcome to SidelinePro. Your coaching tools are coming soon.</p>
-
-        <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {['Teams', 'Players', 'Practice Plans'].map((item) => (
-            <div
-              key={item}
-              className="bg-white rounded-xl border border-gray-200 p-6 text-gray-400 text-sm"
-            >
-              <p className="font-medium text-gray-900 mb-1">{item}</p>
-              Coming soon
-            </div>
-          ))}
-        </div>
-      </main>
+    <div className="min-h-screen bg-sp-bg flex flex-col items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-3xl font-bold text-sp-orange mb-2">SidelinePro</h1>
+        <p className="text-sp-text text-lg font-medium">Welcome to SidelinePro</p>
+        <p className="mt-1 text-sm" style={{ color: 'rgba(241,245,249,0.45)' }}>
+          Signed in as {user?.email}
+        </p>
+        <form action={signOut} className="mt-6">
+          <button
+            type="submit"
+            className="text-sm font-medium text-sp-orange hover:opacity-80 transition-opacity"
+          >
+            Sign out
+          </button>
+        </form>
+      </div>
     </div>
   )
 }
