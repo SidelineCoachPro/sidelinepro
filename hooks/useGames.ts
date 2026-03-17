@@ -35,6 +35,7 @@ export type UpdateGameInput = Partial<{
   lineup_q2: (string | null)[]
   lineup_q3: (string | null)[]
   lineup_q4: (string | null)[]
+  game_log: unknown[]
   notes: string | null
 }>
 
