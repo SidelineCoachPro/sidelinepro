@@ -194,7 +194,7 @@ export default function TrackPage() {
   const {
     ourScore, opponentScore, currentQuarter, clockSeconds, clockRunning,
     activeLineup, gameLog, playerFouls, isEnded,
-    initGame, addScore, undoLastScore, nextQuarter, toggleClock, tickClock,
+    initGame, addScore, removeScore, nextQuarter, toggleClock, tickClock,
     substitutePlayers, addFoul, removeFoul, undoEvent, endGame,
   } = useGameStore()
 
@@ -354,30 +354,31 @@ export default function TrackPage() {
         {/* Score buttons */}
         <div className="grid grid-cols-2 gap-2 px-1">
           {/* Our team */}
-          <div className="flex gap-1.5">
-            {([1, 2, 3] as const).map(pts => (
-              <button key={pts} onClick={() => addScore('us', pts)}
-                className="flex-1 rounded-xl font-bold transition-all active:scale-95"
-                style={{ backgroundColor: '#F7620A', color: '#fff', height: 52, fontSize: 18 }}>
-                +{pts}
-              </button>
-            ))}
+          <div className="flex gap-2">
+            <button onClick={() => removeScore('us')}
+              className="flex-1 rounded-xl font-bold transition-all active:scale-95"
+              style={{ backgroundColor: 'rgba(247,98,10,0.12)', color: '#F7620A', height: 56, fontSize: 28, border: '1px solid rgba(247,98,10,0.25)' }}>
+              −
+            </button>
+            <button onClick={() => addScore('us')}
+              className="flex-1 rounded-xl font-bold transition-all active:scale-95"
+              style={{ backgroundColor: '#F7620A', color: '#fff', height: 56, fontSize: 28 }}>
+              +
+            </button>
           </div>
           {/* Opponent */}
-          <div className="flex gap-1.5">
-            {([1, 2, 3] as const).map(pts => (
-              <button key={pts} onClick={() => addScore('them', pts)}
-                className="flex-1 rounded-xl font-bold transition-all active:scale-95"
-                style={{ backgroundColor: 'rgba(241,245,249,0.08)', color: 'rgba(241,245,249,0.6)', height: 52, fontSize: 18, border: '1px solid rgba(241,245,249,0.1)' }}>
-                +{pts}
-              </button>
-            ))}
+          <div className="flex gap-2">
+            <button onClick={() => removeScore('them')}
+              className="flex-1 rounded-xl font-bold transition-all active:scale-95"
+              style={{ backgroundColor: 'rgba(241,245,249,0.06)', color: 'rgba(241,245,249,0.4)', height: 56, fontSize: 28, border: '1px solid rgba(241,245,249,0.1)' }}>
+              −
+            </button>
+            <button onClick={() => addScore('them')}
+              className="flex-1 rounded-xl font-bold transition-all active:scale-95"
+              style={{ backgroundColor: 'rgba(241,245,249,0.08)', color: 'rgba(241,245,249,0.6)', height: 56, fontSize: 28, border: '1px solid rgba(241,245,249,0.1)' }}>
+              +
+            </button>
           </div>
-        </div>
-        <div className="flex justify-center mt-1.5 px-1">
-          <button onClick={undoLastScore} className="text-xs px-4 py-1.5 rounded-lg transition-opacity hover:opacity-70" style={{ color: 'rgba(241,245,249,0.35)', minHeight: 36 }}>
-            ↩ Undo last score
-          </button>
         </div>
       </div>
 

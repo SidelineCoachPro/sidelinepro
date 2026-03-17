@@ -45,8 +45,8 @@ interface GameState {
 
 interface GameActions {
   initGame: (gameId: string, lineup: (string | null)[]) => void
-  addScore: (team: 'us' | 'them', points: 1 | 2 | 3) => void
-  undoLastScore: () => void
+  addScore: (team: 'us' | 'them') => void
+  removeScore: (team: 'us' | 'them') => void
   nextQuarter: () => void
   toggleClock: () => void
   tickClock: () => void
@@ -82,7 +82,7 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
     isEnded: false,
   }),
 
-  addScore: (team, points) => set(state => {
+  addScore: (team) => set(state => {
     const timeStr = formatClock(state.clockSeconds)
     const event: GameEvent = {
       id: makeId(),
@@ -91,26 +91,20 @@ export const useGameStore = create<GameState & GameActions>()((set, get) => ({
       clockSeconds: state.clockSeconds,
       timeStr,
       team,
-      points,
-      description: `Q${state.currentQuarter} ${timeStr} — ${team === 'us' ? 'Your team' : 'Opponent'} +${points}`,
+      points: 1,
+      description: `Q${state.currentQuarter} ${timeStr} — ${team === 'us' ? 'Your team' : 'Opponent'} +1`,
     }
     return {
-      ourScore: team === 'us' ? state.ourScore + points : state.ourScore,
-      opponentScore: team === 'them' ? state.opponentScore + points : state.opponentScore,
+      ourScore: team === 'us' ? state.ourScore + 1 : state.ourScore,
+      opponentScore: team === 'them' ? state.opponentScore + 1 : state.opponentScore,
       gameLog: [...state.gameLog, event],
     }
   }),
 
-  undoLastScore: () => set(state => {
-    const lastIdx = [...state.gameLog].map((e, i) => ({ e, i })).reverse().find(({ e }) => e.type === 'score')
-    if (!lastIdx) return state
-    const ev = lastIdx.e
-    return {
-      ourScore: ev.team === 'us' ? Math.max(0, state.ourScore - (ev.points ?? 0)) : state.ourScore,
-      opponentScore: ev.team === 'them' ? Math.max(0, state.opponentScore - (ev.points ?? 0)) : state.opponentScore,
-      gameLog: state.gameLog.filter((_, i) => i !== lastIdx.i),
-    }
-  }),
+  removeScore: (team) => set(state => ({
+    ourScore: team === 'us' ? Math.max(0, state.ourScore - 1) : state.ourScore,
+    opponentScore: team === 'them' ? Math.max(0, state.opponentScore - 1) : state.opponentScore,
+  })),
 
   nextQuarter: () => set(state => {
     if (state.currentQuarter >= 4) return state
