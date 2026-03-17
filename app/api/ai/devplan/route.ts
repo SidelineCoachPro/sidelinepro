@@ -49,6 +49,7 @@ const SKILL_MESSAGES: Record<string, string> = {
   coachability: "Hi [Parent Name], I wanted to share some thoughts on [Player Name]'s development. I've created a short plan focused on communication and responding to coaching cues — skills that make everything else easier to learn. Some of these activities involve both of you, which I think you'll enjoy!",
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function buildDevPlanPrompt(
   playerName: string,
   focusSkill: string,
@@ -80,7 +81,8 @@ Generate a development plan with exactly 3 drills for the focus skill. Each dril
 
 export async function POST(req: NextRequest) {
   try {
-    const { playerName, focusSkill, skillScores } = await req.json()
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { playerName, focusSkill, skillScores: _skillScores } = await req.json()
 
     if (!playerName || !focusSkill) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })

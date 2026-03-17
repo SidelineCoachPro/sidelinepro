@@ -44,6 +44,7 @@ function RunInner() {
   const current = drills[currentIndex]
 
   // Reset timer when drill changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (current) {
       setTimeLeft(current.durationMins * 60)
@@ -338,7 +339,7 @@ function RunInner() {
             Up Next
           </p>
           <div className="space-y-1.5">
-            {drills.slice(currentIndex + 1, currentIndex + 4).map((d, i) => (
+            {drills.slice(currentIndex + 1, currentIndex + 4).map((d) => (
               <div key={d.uid} className="flex items-center gap-3">
                 <div
                   className="w-1.5 h-5 rounded-full flex-shrink-0"

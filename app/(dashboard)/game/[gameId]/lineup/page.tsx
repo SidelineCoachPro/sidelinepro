@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   DndContext,
@@ -47,7 +47,7 @@ function gradeColor(grade: string): string {
 }
 
 // ── Draggable Player Chip ─────────────────────────────────────────────────────
-function DraggableChip({ player, avg, grade, used }: { player: Player; avg: number | null; grade: string | null; used: boolean }) {
+function DraggableChip({ player, grade, used }: { player: Player; avg?: number | null; grade: string | null; used: boolean }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `player-${player.id}` })
   const gColor = grade ? gradeColor(grade) : 'rgba(241,245,249,0.3)'
 
@@ -81,7 +81,7 @@ function DraggableChip({ player, avg, grade, used }: { player: Player; avg: numb
 }
 
 // Chip used in DragOverlay (no dnd hooks)
-function PlayerChip({ player, avg, grade }: { player: Player; avg: number | null; grade: string | null }) {
+function PlayerChip({ player, grade }: { player: Player; avg?: number | null; grade: string | null }) {
   const gColor = grade ? gradeColor(grade) : 'rgba(241,245,249,0.3)'
   return (
     <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg" style={{ backgroundColor: '#1A2535', border: '1px solid rgba(241,245,249,0.15)', minWidth: 160 }}>
@@ -115,7 +115,6 @@ function LineupSlot({
   const position = POSITIONS[slotIdx]
   const player = playerId ? players.find(p => p.id === playerId) ?? null : null
   const gradeInfo = player ? gradeMap.get(player.id) ?? null : null
-  const gColor = gradeInfo ? gradeColor(gradeInfo.grade) : '#38BDF8'
   const pickerRef = useRef<HTMLDivElement>(null)
 
   // Close picker on outside click
@@ -216,7 +215,6 @@ function LineupSlot({
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function LineupPage() {
   const { gameId } = useParams() as { gameId: string }
-  const router = useRouter()
 
   const { data: game, isLoading: loadingGame } = useGame(gameId)
   const { data: players = [] } = usePlayers()

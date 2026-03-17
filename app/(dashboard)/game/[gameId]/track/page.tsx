@@ -6,7 +6,7 @@ import { Barlow_Condensed } from 'next/font/google'
 import { useGame, useUpdateGame } from '@/hooks/useGames'
 import { usePlayers, type Player } from '@/hooks/usePlayers'
 import { useEvaluations } from '@/hooks/useEvaluations'
-import { useGameStore, formatClock, QUARTER_SECONDS, type GameEvent } from '@/stores/gameStore'
+import { useGameStore, formatClock } from '@/stores/gameStore'
 
 const barlow = Barlow_Condensed({ subsets: ['latin'], weight: '900' })
 
@@ -193,7 +193,7 @@ export default function TrackPage() {
 
   const {
     ourScore, opponentScore, currentQuarter, clockSeconds, clockRunning,
-    activeLineup, gameLog, playerFouls, isEnded,
+    activeLineup, gameLog, playerFouls,
     initGame, addScore, removeScore, nextQuarter, toggleClock, tickClock,
     substitutePlayers, addFoul, removeFoul, undoEvent, endGame,
   } = useGameStore()
