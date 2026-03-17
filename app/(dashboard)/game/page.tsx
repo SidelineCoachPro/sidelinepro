@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Barlow_Condensed } from 'next/font/google'
-import { useGames, useCreateGame, useDeleteGame, type Game } from '@/hooks/useGames'
+import { useGames, useCreateGame, useUpdateGame, useDeleteGame, type Game } from '@/hooks/useGames'
 
 const barlow = Barlow_Condensed({ subsets: ['latin'], weight: '900' })
 
@@ -32,26 +32,42 @@ function getCalendarDays(year: number, month: number): Date[] {
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const DAY_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 
-// ── Add Game Modal ────────────────────────────────────────────────────────────
-function AddGameModal({ onClose }: { onClose: () => void }) {
-  const { mutateAsync, isPending } = useCreateGame()
-  const [opponent, setOpponent] = useState('')
-  const [location, setLocation] = useState('')
-  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0])
-  const [time, setTime] = useState('10:00')
-  const [notes, setNotes] = useState('')
-  const [error, setError] = useState('')
+// ── Game Form Modal (create + edit) ──────────────────────────────────────────
+function GameFormModal({ game, onClose }: { game?: Game; onClose: () => void }) {
+  const isEdit = !!game
+  const { mutateAsync: createGame, isPending: isCreating } = useCreateGame()
+  const { mutateAsync: updateGame, isPending: isUpdating } = useUpdateGame()
+  const isPending = isCreating || isUpdating
+
+  const dt = game ? new Date(game.scheduled_at) : null
+  const [opponent, setOpponent] = useState(game?.opponent ?? '')
+  const [location, setLocation] = useState(game?.location ?? '')
+  const [date, setDate]     = useState(dt ? dt.toISOString().split('T')[0] : new Date().toISOString().split('T')[0])
+  const [time, setTime]     = useState(dt ? dt.toTimeString().slice(0, 5) : '10:00')
+  const [notes, setNotes]   = useState(game?.notes ?? '')
+  const [error, setError]   = useState('')
 
   async function handleSave() {
     if (!opponent.trim()) { setError('Opponent name is required'); return }
     setError('')
     try {
-      await mutateAsync({
-        opponent: opponent.trim(),
-        location: location.trim() || null,
-        scheduled_at: new Date(`${date}T${time}:00`).toISOString(),
-        notes: notes.trim() || null,
-      })
+      const scheduled_at = new Date(`${date}T${time}:00`).toISOString()
+      if (isEdit && game) {
+        await updateGame({
+          id: game.id,
+          opponent: opponent.trim(),
+          location: location.trim() || null,
+          scheduled_at,
+          notes: notes.trim() || null,
+        })
+      } else {
+        await createGame({
+          opponent: opponent.trim(),
+          location: location.trim() || null,
+          scheduled_at,
+          notes: notes.trim() || null,
+        })
+      }
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save game')
@@ -66,7 +82,7 @@ function AddGameModal({ onClose }: { onClose: () => void }) {
     >
       <div className="w-full max-w-md rounded-xl flex flex-col overflow-hidden" style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.07)' }}>
         <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid rgba(241,245,249,0.07)' }}>
-          <h2 className="text-base font-semibold text-sp-text">Add Game</h2>
+          <h2 className="text-base font-semibold text-sp-text">{isEdit ? 'Edit Game' : 'Add Game'}</h2>
           <button onClick={onClose} style={{ color: 'rgba(241,245,249,0.4)' }} className="hover:opacity-60 text-lg leading-none">✕</button>
         </div>
         <div className="px-6 py-5 space-y-4">
@@ -97,7 +113,7 @@ function AddGameModal({ onClose }: { onClose: () => void }) {
         <div className="flex items-center justify-end gap-3 px-6 py-4" style={{ borderTop: '1px solid rgba(241,245,249,0.07)' }}>
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium" style={{ color: 'rgba(241,245,249,0.5)' }}>Cancel</button>
           <button onClick={handleSave} disabled={isPending} className="px-5 py-2 text-sm font-semibold rounded-lg disabled:opacity-50 hover:opacity-85 transition-opacity" style={{ backgroundColor: '#F7620A', color: '#fff' }}>
-            {isPending ? 'Saving...' : 'Add Game'}
+            {isPending ? 'Saving...' : isEdit ? 'Save Changes' : 'Add Game'}
           </button>
         </div>
       </div>
@@ -242,8 +258,10 @@ function GameCard({ game, onDelete }: { game: Game; onDelete: () => void }) {
   const isToday = d === 0
   const hasFinal = isPast && (game.our_score !== null || game.opponent_score !== null)
   const [confirmDel, setConfirmDel] = useState(false)
+  const [editing, setEditing] = useState(false)
 
   return (
+    <>
     <div
       className="rounded-xl p-4 flex gap-4"
       style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.07)', opacity: isPast ? 0.65 : 1 }}
@@ -292,6 +310,9 @@ function GameCard({ game, onDelete }: { game: Game; onDelete: () => void }) {
           <Link href={`/game/${game.id}/track`} className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-opacity hover:opacity-80" style={{ backgroundColor: 'rgba(247,98,10,0.12)', color: '#F7620A', border: '1px solid rgba(247,98,10,0.25)' }}>
             Track Game
           </Link>
+          <button onClick={() => setEditing(true)} className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-opacity hover:opacity-80" style={{ backgroundColor: 'rgba(241,245,249,0.06)', color: 'rgba(241,245,249,0.5)', border: '1px solid rgba(241,245,249,0.1)' }}>
+            Edit
+          </button>
           {confirmDel ? (
             <>
               <button onClick={onDelete} className="px-3 py-1.5 text-xs font-semibold rounded-lg" style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#EF4444' }}>Confirm delete</button>
@@ -303,6 +324,9 @@ function GameCard({ game, onDelete }: { game: Game; onDelete: () => void }) {
         </div>
       </div>
     </div>
+
+    {editing && <GameFormModal game={game} onClose={() => setEditing(false)} />}
+    </>
   )
 }
 
@@ -389,7 +413,7 @@ export default function GameDayPage() {
         <CalendarView games={games} />
       )}
 
-      {showAdd && <AddGameModal onClose={() => setShowAdd(false)} />}
+      {showAdd && <GameFormModal onClose={() => setShowAdd(false)} />}
     </div>
   )
 }
