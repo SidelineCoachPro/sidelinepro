@@ -7,9 +7,11 @@ import { PLAYER_COLORS, SKILLS, gradeColor, playerInitials, formatEvalDate, type
 interface Props {
   players: Player[]
   evals: Evaluation[]
+  onGeneratePlan: (playerId: string) => void
+  generatingPlanFor: string | null
 }
 
-export default function ProgressView({ players, evals }: Props) {
+export default function ProgressView({ players, evals, onGeneratePlan, generatingPlanFor }: Props) {
   const playersWithEvals = players.filter(p => evals.some(e => e.player_id === p.id))
 
   if (playersWithEvals.length === 0) {
@@ -30,6 +32,7 @@ export default function ProgressView({ players, evals }: Props) {
         if (pe.length === 0) return null
 
         const color = PLAYER_COLORS[idx % PLAYER_COLORS.length]
+        const isGenerating = generatingPlanFor === player.id
 
         return (
           <div key={player.id} className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(241,245,249,0.07)' }}>
@@ -47,6 +50,15 @@ export default function ProgressView({ players, evals }: Props) {
               <span className="text-xs ml-1" style={{ color: 'rgba(241,245,249,0.35)' }}>
                 {pe.length} evaluation{pe.length !== 1 ? 's' : ''}
               </span>
+              {/* Dev Plan button */}
+              <button
+                onClick={() => onGeneratePlan(player.id)}
+                disabled={!!generatingPlanFor}
+                className="ml-auto text-xs font-semibold px-2.5 py-1 rounded-lg transition-opacity hover:opacity-80 disabled:opacity-40"
+                style={{ backgroundColor: 'rgba(139,92,246,0.15)', color: '#8B5CF6', border: '1px solid rgba(139,92,246,0.3)' }}
+              >
+                {isGenerating ? 'Generating...' : '✦ Gen Plan'}
+              </button>
             </div>
 
             {pe.length === 1 ? (

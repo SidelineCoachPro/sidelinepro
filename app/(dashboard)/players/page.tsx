@@ -4,9 +4,11 @@ import { useState, useMemo } from 'react'
 import { Barlow_Condensed } from 'next/font/google'
 import { usePlayers, type Player } from '@/hooks/usePlayers'
 import { useEvaluations, type Evaluation } from '@/hooks/useEvaluations'
+import { useCreateDevPlan, type DevPlan } from '@/hooks/useDevPlans'
 import AddPlayerModal from './AddPlayerModal'
 import EvalModal from './EvalModal'
 import PlayerDetailModal from './PlayerDetailModal'
+import DevPlanModal from './DevPlanModal'
 import HeatmapView from './HeatmapView'
 import ProgressView from './ProgressView'
 import { PLAYER_COLORS, SKILLS, gradeColor, playerInitials, formatEvalDate, type SkillKey } from './evalUtils'
@@ -148,11 +150,9 @@ function PlayerCard({
             >
               →
             </button>
-            {total > 1 && (
-              <span className="text-xs" style={{ color: 'rgba(241,245,249,0.2)' }}>
-                {evalIdx + 1}/{total}
-              </span>
-            )}
+            <span className="text-xs" style={{ color: 'rgba(241,245,249,0.2)' }}>
+              {evalIdx + 1}/{total}
+            </span>
           </div>
         ) : (
           <span className="text-xs" style={{ color: 'rgba(241,245,249,0.25)' }}>No evaluations</span>
@@ -178,6 +178,66 @@ export default function PlayersPage() {
 
   const { data: players = [], isLoading: loadingPlayers } = usePlayers()
   const { data: evals   = [], isLoading: loadingEvals   } = useEvaluations()
+  const { mutateAsync: createDevPlan } = useCreateDevPlan()
+
+  const [generatingPlanFor, setGeneratingPlanFor] = useState<string | null>(null)
+  const [activePlan, setActivePlan]               = useState<DevPlan | null>(null)
+  const [planError, setPlanError]                 = useState('')
+
+  async function handleGeneratePlan(playerId: string) {
+    if (generatingPlanFor) return
+    setGeneratingPlanFor(playerId)
+    setPlanError('')
+    try {
+      const player = players.find(p => p.id === playerId)
+      if (!player) throw new Error('Player not found')
+
+      const playerEvals = evals.filter(e => e.player_id === playerId)
+      const latest = playerEvals.sort((a, b) =>
+        new Date(b.evaluated_at).getTime() - new Date(a.evaluated_at).getTime()
+      )[0] ?? null
+
+      // Auto-detect weakest skill
+      let focusSkill = 'ball_handling'
+      if (latest) {
+        let lowestVal = Infinity
+        for (const skill of SKILLS) {
+          const val = (latest[skill.key as SkillKey] ?? 10) as number
+          if (val < lowestVal) { lowestVal = val; focusSkill = skill.key }
+        }
+      }
+
+      const skillScores = latest
+        ? Object.fromEntries(SKILLS.map(s => [s.key, (latest[s.key as SkillKey] ?? 5) as number]))
+        : {}
+
+      const res = await fetch('/api/ai/devplan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          playerName: `${player.first_name} ${player.last_name ?? ''}`.trim(),
+          focusSkill,
+          skillScores,
+        }),
+      })
+      if (!res.ok) throw new Error('Failed to generate plan')
+      const data = await res.json()
+
+      const saved = await createDevPlan({
+        player_id: playerId,
+        evaluation_id: latest?.id ?? null,
+        focus_skill: focusSkill,
+        drills: data.drills,
+        duration_mins: data.duration_mins,
+        message_text: data.message_text,
+      })
+      setActivePlan(saved)
+    } catch (err) {
+      setPlanError(err instanceof Error ? err.message : 'Failed to generate plan')
+    } finally {
+      setGeneratingPlanFor(null)
+    }
+  }
 
   const filteredPlayers = useMemo(() => {
     if (!search.trim()) return players
@@ -250,6 +310,13 @@ export default function PlayersPage() {
         />
       )}
 
+      {/* Plan generation error */}
+      {planError && (
+        <p className="text-sm text-red-400 mb-4 px-3 py-2 rounded-lg" style={{ backgroundColor: 'rgba(239,68,68,0.1)' }}>
+          {planError}
+        </p>
+      )}
+
       {/* Content */}
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
@@ -289,9 +356,19 @@ export default function PlayersPage() {
           </div>
         )
       ) : tab === 'heatmap' ? (
-        <HeatmapView players={players} evals={evals} />
+        <HeatmapView
+          players={players}
+          evals={evals}
+          onGeneratePlan={handleGeneratePlan}
+          generatingPlanFor={generatingPlanFor}
+        />
       ) : (
-        <ProgressView players={players} evals={evals} />
+        <ProgressView
+          players={players}
+          evals={evals}
+          onGeneratePlan={handleGeneratePlan}
+          generatingPlanFor={generatingPlanFor}
+        />
       )}
 
       {/* Modals */}
@@ -317,6 +394,17 @@ export default function PlayersPage() {
           onNewEval={() => setModal({ type: 'eval', playerId: modalPlayer.id })}
         />
       )}
+
+      {activePlan && (() => {
+        const player = players.find(p => p.id === activePlan.player_id)
+        return player ? (
+          <DevPlanModal
+            player={player}
+            plan={activePlan}
+            onClose={() => setActivePlan(null)}
+          />
+        ) : null
+      })()}
     </div>
   )
 }

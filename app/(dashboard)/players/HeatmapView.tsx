@@ -14,9 +14,11 @@ function heatColor(val: number | null): { bg: string; text: string } {
 interface Props {
   players: Player[]
   evals: Evaluation[]
+  onGeneratePlan: (playerId: string) => void
+  generatingPlanFor: string | null
 }
 
-export default function HeatmapView({ players, evals }: Props) {
+export default function HeatmapView({ players, evals, onGeneratePlan, generatingPlanFor }: Props) {
   // Latest eval per player
   function latestEval(playerId: string): Evaluation | null {
     const pe = evals.filter(e => e.player_id === playerId)
@@ -49,12 +51,16 @@ export default function HeatmapView({ players, evals }: Props) {
             <th className="text-center px-3 py-3 font-medium" style={{ color: 'rgba(241,245,249,0.4)', minWidth: 64 }}>
               Avg
             </th>
+            <th className="text-center px-3 py-3 font-medium" style={{ color: 'rgba(241,245,249,0.4)', minWidth: 96 }}>
+              Dev Plan
+            </th>
           </tr>
         </thead>
         <tbody>
           {players.map((player, idx) => {
             const latest = latestEval(player.id)
             const color  = PLAYER_COLORS[idx % PLAYER_COLORS.length]
+            const isGenerating = generatingPlanFor === player.id
 
             return (
               <tr
@@ -99,6 +105,22 @@ export default function HeatmapView({ players, evals }: Props) {
                     <span className="text-sm font-bold text-sp-text">{latest.overall_avg.toFixed(1)}</span>
                   ) : (
                     <span style={{ color: 'rgba(241,245,249,0.2)' }}>—</span>
+                  )}
+                </td>
+
+                {/* Dev Plan button */}
+                <td className="px-3 py-3 text-center">
+                  {latest ? (
+                    <button
+                      onClick={() => onGeneratePlan(player.id)}
+                      disabled={!!generatingPlanFor}
+                      className="text-xs font-semibold px-2.5 py-1 rounded-lg transition-opacity hover:opacity-80 disabled:opacity-40"
+                      style={{ backgroundColor: 'rgba(139,92,246,0.15)', color: '#8B5CF6', border: '1px solid rgba(139,92,246,0.3)' }}
+                    >
+                      {isGenerating ? '...' : '✦ Plan'}
+                    </button>
+                  ) : (
+                    <span style={{ color: 'rgba(241,245,249,0.2)', fontSize: 11 }}>no eval</span>
                   )}
                 </td>
               </tr>
