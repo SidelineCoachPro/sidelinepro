@@ -8,14 +8,19 @@ export default function CommsPanel() {
   const router = useRouter()
   const [open, setOpen] = useState(false)
 
-  // Close on Escape
+  // Close on Escape, open on custom event
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') setOpen(false)
     }
-    if (open) document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open])
+    function onOpen() { setOpen(true) }
+    document.addEventListener('keydown', onKey)
+    window.addEventListener('openCommsPanel', onOpen)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      window.removeEventListener('openCommsPanel', onOpen)
+    }
+  }, [])
 
   function handleSelect(t: Template) {
     setOpen(false)
