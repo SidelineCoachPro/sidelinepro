@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useMessageLog, useLogMessage } from '@/hooks/useMessageLog'
+import { useParentContacts, type ParentContact } from '@/hooks/useParentContacts'
+import { usePlayers } from '@/hooks/usePlayers'
 import { TEMPLATES, type Template } from '@/lib/commsTemplates'
 
 type Channel = 'sms' | 'email' | 'whatsapp'
@@ -15,14 +17,49 @@ const CHANNEL_CONFIG: Record<Channel, { label: string; color: string; bg: string
 
 // ── Send Modal ─────────────────────────────────────────────────────────────────
 
-function SendModal({ template, onClose }: { template: Template; onClose: () => void }) {
+function SendModal({
+  template,
+  allContacts,
+  playerNames,
+  onClose,
+}: {
+  template: Template
+  allContacts: ParentContact[]
+  playerNames: Record<string, string>
+  onClose: () => void
+}) {
   const [subject, setSubject] = useState(template.subject)
   const [body, setBody] = useState(template.body)
   const [channels, setChannels] = useState<Set<Channel>>(new Set<Channel>(['sms']))
   const [shouldLog, setShouldLog] = useState(true)
   const [sent, setSent] = useState<Channel[]>([])
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [recipientsOpen, setRecipientsOpen] = useState(allContacts.length > 0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { mutate: logMessage } = useLogMessage()
+
+  // Contacts grouped by player
+  const grouped = useMemo(() => {
+    const map = new Map<string, ParentContact[]>()
+    for (const c of allContacts) {
+      if (!map.has(c.player_id)) map.set(c.player_id, [])
+      map.get(c.player_id)!.push(c)
+    }
+    return map
+  }, [allContacts])
+
+  const selectedContacts = allContacts.filter(c => selectedIds.has(c.id))
+  const selectedPhones = selectedContacts.map(c => c.phone).filter(Boolean) as string[]
+  const selectedEmails = selectedContacts.map(c => c.email).filter(Boolean) as string[]
+
+  function toggleContact(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   // Reset when template changes (intentionally only on id change, not every field re-render)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -57,13 +94,17 @@ function SendModal({ template, onClose }: { template: Template; onClose: () => v
     })
   }
 
-  function handleSend(channel: Channel) {
+  function handleSend(channel: Channel, waPhone?: string) {
+    const encodedBody = encodeURIComponent(body)
     if (channel === 'sms') {
-      window.location.href = `sms:?body=${encodeURIComponent(body)}`
+      const phone = selectedPhones[0] ?? ''
+      window.location.href = `sms:${phone}?body=${encodedBody}`
     } else if (channel === 'email') {
-      window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+      const to = selectedEmails.join(',')
+      window.location.href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodedBody}`
     } else if (channel === 'whatsapp') {
-      window.open(`https://wa.me/?text=${encodeURIComponent(body)}`, '_blank')
+      const phone = (waPhone ?? selectedPhones[0] ?? '').replace(/\D/g, '')
+      window.open(`https://wa.me/${phone}?text=${encodedBody}`, '_blank')
     }
     if (shouldLog) {
       logMessage({ template_type: template.id, subject, body, channels: [channel] })
@@ -174,6 +215,76 @@ function SendModal({ template, onClose }: { template: Template; onClose: () => v
             </div>
           </div>
 
+          {/* Recipients */}
+          {allContacts.length > 0 && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setRecipientsOpen(v => !v)}
+                className="flex items-center justify-between w-full text-xs font-semibold mb-2"
+                style={{ color: 'rgba(241,245,249,0.5)' }}
+              >
+                <span>
+                  Recipients
+                  {selectedIds.size > 0 && (
+                    <span
+                      className="ml-2 px-1.5 py-0.5 rounded font-bold"
+                      style={{ backgroundColor: 'rgba(247,98,10,0.2)', color: '#F7620A' }}
+                    >
+                      {selectedIds.size}
+                    </span>
+                  )}
+                </span>
+                <span>{recipientsOpen ? '▲' : '▼'}</span>
+              </button>
+              {recipientsOpen && (
+                <div
+                  className="rounded-xl overflow-hidden"
+                  style={{ border: '1px solid rgba(241,245,249,0.08)' }}
+                >
+                  {Array.from(grouped.entries()).map(([playerId, pContacts]) => (
+                    <div key={playerId} style={{ borderBottom: '1px solid rgba(241,245,249,0.05)' }}>
+                      <p
+                        className="px-3 pt-2.5 pb-1 text-xs font-semibold"
+                        style={{ color: 'rgba(241,245,249,0.35)' }}
+                      >
+                        {playerNames[playerId] ?? 'Unknown Player'}
+                      </p>
+                      {pContacts.map(c => (
+                        <label
+                          key={c.id}
+                          className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-white/[0.02]"
+                        >
+                          <div
+                            onClick={() => toggleContact(c.id)}
+                            className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0 transition-colors"
+                            style={{
+                              backgroundColor: selectedIds.has(c.id) ? '#F7620A' : 'rgba(241,245,249,0.08)',
+                              border: `1px solid ${selectedIds.has(c.id) ? '#F7620A' : 'rgba(241,245,249,0.2)'}`,
+                            }}
+                          >
+                            {selectedIds.has(c.id) && <span className="text-white" style={{ fontSize: 9, fontWeight: 900 }}>✓</span>}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-sp-text">
+                              {c.first_name} {c.last_name ?? ''}
+                              {c.is_primary && (
+                                <span className="ml-1.5 text-xs" style={{ color: '#F7620A' }}>Primary</span>
+                              )}
+                            </p>
+                            <p className="text-xs truncate" style={{ color: 'rgba(241,245,249,0.35)' }}>
+                              {[c.phone, c.email].filter(Boolean).join(' · ')}
+                            </p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Log checkbox */}
           <label className="flex items-center gap-2.5 cursor-pointer select-none">
             <div
@@ -198,6 +309,26 @@ function SendModal({ template, onClose }: { template: Template; onClose: () => v
             Array.from(channels).map(ch => {
               const cfg = CHANNEL_CONFIG[ch]
               const alreadySent = sent.includes(ch)
+              // WhatsApp: show one button per selected contact with a phone number
+              if (ch === 'whatsapp' && selectedIds.size > 0) {
+                const waContacts = selectedContacts.filter(c => c.phone)
+                if (waContacts.length > 0) {
+                  return (
+                    <div key={ch} className="space-y-1.5">
+                      {waContacts.map(c => (
+                        <button
+                          key={c.id}
+                          onClick={() => handleSend('whatsapp', c.phone!)}
+                          className="w-full py-3 rounded-xl text-sm font-bold transition-all"
+                          style={{ backgroundColor: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}
+                        >
+                          WhatsApp → {c.first_name} {c.last_name ?? ''}
+                        </button>
+                      ))}
+                    </div>
+                  )
+                }
+              }
               return (
                 <button
                   key={ch}
@@ -389,6 +520,20 @@ export default function CommsPage() {
   const searchParams = useSearchParams()
   const [activeTemplate, setActiveTemplate] = useState<Template | null>(null)
 
+  const { data: players = [] }  = usePlayers()
+  const { data: allContacts = [] } = useParentContacts()
+
+  const playerNames: Record<string, string> = useMemo(() => {
+    return Object.fromEntries(
+      players.map(p => [p.id, `${p.first_name} ${p.last_name ?? ''}`.trim()])
+    )
+  }, [players])
+
+  // Contacts summary stats
+  const totalContacts = allContacts.length
+  const playersWithContact = new Set(allContacts.map(c => c.player_id)).size
+  const playersWithout = players.length - playersWithContact
+
   // Auto-open modal if ?send=<templateId> is in the URL
   useEffect(() => {
     const id = searchParams.get('send')
@@ -401,12 +546,39 @@ export default function CommsPage() {
   return (
     <div className="max-w-3xl mx-auto">
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-6">
         <h1 className="text-2xl font-bold text-sp-text mb-1">Parent Communications</h1>
         <p className="text-sm" style={{ color: 'rgba(241,245,249,0.45)' }}>
           One tap to notify every parent. Opens in your SMS, Email, or WhatsApp.
         </p>
       </div>
+
+      {/* Contacts summary bar */}
+      {players.length > 0 && (
+        <div
+          className="flex items-center gap-4 px-4 py-3 rounded-xl mb-8"
+          style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.07)' }}
+        >
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm font-bold text-sp-text">{players.length}</span>
+            <span className="text-xs" style={{ color: 'rgba(241,245,249,0.4)' }}>players</span>
+          </div>
+          <div className="w-px h-4" style={{ backgroundColor: 'rgba(241,245,249,0.1)' }} />
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm font-bold text-sp-text">{totalContacts}</span>
+            <span className="text-xs" style={{ color: 'rgba(241,245,249,0.4)' }}>contacts</span>
+          </div>
+          {playersWithout > 0 && (
+            <>
+              <div className="w-px h-4" style={{ backgroundColor: 'rgba(241,245,249,0.1)' }} />
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-bold" style={{ color: '#F5B731' }}>{playersWithout}</span>
+                <span className="text-xs" style={{ color: 'rgba(241,245,249,0.4)' }}>missing contacts</span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Quick Templates */}
       <section className="mb-10">
@@ -436,6 +608,8 @@ export default function CommsPage() {
       {activeTemplate && (
         <SendModal
           template={activeTemplate}
+          allContacts={allContacts}
+          playerNames={playerNames}
           onClose={() => setActiveTemplate(null)}
         />
       )}

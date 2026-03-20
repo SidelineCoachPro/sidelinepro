@@ -2,6 +2,7 @@
 
 import { type Player } from '@/hooks/usePlayers'
 import { type DevPlan } from '@/hooks/useDevPlans'
+import { useParentContacts } from '@/hooks/useParentContacts'
 import { SKILLS } from './evalUtils'
 
 interface Props {
@@ -25,15 +26,20 @@ export default function DevPlanModal({ player, plan, onClose }: Props) {
   const skillLabel = SKILL_LABEL[plan.focus_skill] ?? plan.focus_skill
   const skillColor = SKILL_COLOR[plan.focus_skill] ?? '#F7620A'
 
+  const { data: contacts = [] } = useParentContacts(player.id)
+  const primary = contacts.find(c => c.is_primary) ?? contacts[0] ?? null
+
   const playerFullName = `${player.first_name} ${player.last_name ?? ''}`.trim()
+  const parentName = primary ? primary.first_name : 'there'
   const message = plan.message_text
     .replace('[Player Name]', playerFullName)
-    .replace('[Parent Name]', 'there')
+    .replace('[Parent Name]', parentName)
 
-  // Deep-link helpers
+  // Deep-link helpers — pre-fill primary contact when available
   function smsLink() {
     const body = encodeURIComponent(`${message}\n\nDev Plan: ${plan.drills.map((d, i) => `${i + 1}. ${d.name} (${d.duration_mins} min)`).join(', ')}`)
-    return `sms:?body=${body}`
+    const phone = primary?.phone ?? ''
+    return `sms:${phone}?body=${body}`
   }
 
   function emailLink() {
@@ -44,7 +50,8 @@ export default function DevPlanModal({ player, plan, onClose }: Props) {
         `${i + 1}. ${d.name} (${d.duration_mins} min)\n${d.instructions}`
       ).join('\n\n')
     )
-    return `mailto:?subject=${subject}&body=${body}`
+    const to = primary?.email ?? ''
+    return `mailto:${to}?subject=${subject}&body=${body}`
   }
 
   function whatsappLink() {
@@ -52,7 +59,8 @@ export default function DevPlanModal({ player, plan, onClose }: Props) {
       `${message}\n\n*${playerFullName}'s ${skillLabel} Dev Plan (${plan.duration_mins} min)*\n\n` +
       plan.drills.map((d, i) => `${i + 1}. *${d.name}* (${d.duration_mins} min)\n${d.instructions}`).join('\n\n')
     )
-    return `https://wa.me/?text=${text}`
+    const phone = primary?.phone?.replace(/\D/g, '') ?? ''
+    return `https://wa.me/${phone}?text=${text}`
   }
 
   return (

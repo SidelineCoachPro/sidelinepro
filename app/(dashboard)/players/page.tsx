@@ -5,6 +5,7 @@ import { Barlow_Condensed } from 'next/font/google'
 import { usePlayers, type Player } from '@/hooks/usePlayers'
 import { useEvaluations, type Evaluation } from '@/hooks/useEvaluations'
 import { useCreateDevPlan, type DevPlan } from '@/hooks/useDevPlans'
+import { useParentContacts } from '@/hooks/useParentContacts'
 import AddPlayerModal from './AddPlayerModal'
 import EvalModal from './EvalModal'
 import PlayerDetailModal from './PlayerDetailModal'
@@ -27,12 +28,14 @@ function PlayerCard({
   player,
   index,
   evals,
+  contactCount,
   onDetail,
   onEval,
 }: {
   player: Player
   index: number
   evals: Evaluation[]
+  contactCount: number
   onDetail: () => void
   onEval: (e: React.MouseEvent) => void
 }) {
@@ -158,13 +161,24 @@ function PlayerCard({
           <span className="text-xs" style={{ color: 'rgba(241,245,249,0.25)' }}>No evaluations</span>
         )}
 
-        <button
-          onClick={e => { e.stopPropagation(); onEval(e) }}
-          className="text-xs font-semibold transition-opacity hover:opacity-75"
-          style={{ color: '#F7620A' }}
-        >
-          + New Eval
-        </button>
+        <div className="flex items-center gap-2">
+          <span
+            className="text-xs px-2 py-0.5 rounded-full"
+            style={{
+              backgroundColor: contactCount > 0 ? 'rgba(247,98,10,0.12)' : 'rgba(241,245,249,0.06)',
+              color: contactCount > 0 ? '#F7620A' : 'rgba(241,245,249,0.25)',
+            }}
+          >
+            👤 {contactCount}
+          </span>
+          <button
+            onClick={e => { e.stopPropagation(); onEval(e) }}
+            className="text-xs font-semibold transition-opacity hover:opacity-75"
+            style={{ color: '#F7620A' }}
+          >
+            + New Eval
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -178,6 +192,7 @@ export default function PlayersPage() {
 
   const { data: players = [], isLoading: loadingPlayers } = usePlayers()
   const { data: evals   = [], isLoading: loadingEvals   } = useEvaluations()
+  const { data: allContacts = [] }                        = useParentContacts()
   const { mutateAsync: createDevPlan } = useCreateDevPlan()
 
   const [generatingPlanFor, setGeneratingPlanFor] = useState<string | null>(null)
@@ -348,6 +363,7 @@ export default function PlayersPage() {
                   player={player}
                   index={idx}
                   evals={evals}
+                  contactCount={allContacts.filter(c => c.player_id === player.id).length}
                   onDetail={() => setModal({ type: 'detail', playerId: player.id })}
                   onEval={e => { e.stopPropagation(); setModal({ type: 'eval', playerId: player.id }) }}
                 />

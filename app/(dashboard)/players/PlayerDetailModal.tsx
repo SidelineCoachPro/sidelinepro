@@ -5,8 +5,10 @@ import { type Player } from '@/hooks/usePlayers'
 import { useDeletePlayer } from '@/hooks/usePlayers'
 import { type Evaluation } from '@/hooks/useEvaluations'
 import { useDevPlans, useCreateDevPlan, type DevPlan } from '@/hooks/useDevPlans'
+import { useParentContacts, useDeleteParentContact, type ParentContact } from '@/hooks/useParentContacts'
 import { PLAYER_COLORS, SKILLS, gradeColor, aiInsight, playerInitials, formatEvalDate, type SkillKey } from './evalUtils'
 import DevPlanModal from './DevPlanModal'
+import ContactModal from './ContactModal'
 
 interface Props {
   player: Player
@@ -36,10 +38,15 @@ export default function PlayerDetailModal({ player, playerIndex, evals, onClose,
   const { mutateAsync: createDevPlan } = useCreateDevPlan()
   const { data: devPlans = [] } = useDevPlans(player.id)
 
+  const { data: contacts = [] }                           = useParentContacts(player.id)
+  const { mutateAsync: deleteContact, isPending: deleting } = useDeleteParentContact()
+
   const [confirmDelete, setConfirmDelete]   = useState(false)
   const [isGenerating, setIsGenerating]     = useState(false)
   const [genError, setGenError]             = useState('')
   const [activePlan, setActivePlan]         = useState<DevPlan | null>(null)
+  const [contactModal, setContactModal]     = useState<{ existing?: ParentContact } | null>(null)
+  const [confirmDeleteContact, setConfirmDeleteContact] = useState<string | null>(null)
 
   async function handleDelete() {
     await deletePlayer(player.id)
@@ -273,6 +280,135 @@ export default function PlayerDetailModal({ player, playerIndex, evals, onClose,
             )}
           </div>
 
+          {/* Parents / Contacts */}
+          <div style={{ borderTop: '1px solid rgba(241,245,249,0.07)', paddingTop: '1.25rem' }}>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'rgba(241,245,249,0.35)' }}>
+                Parents / Contacts
+              </p>
+              {contacts.length < 2 && (
+                <button
+                  onClick={() => setContactModal({})}
+                  className="text-xs font-semibold transition-opacity hover:opacity-70"
+                  style={{ color: '#F7620A' }}
+                >
+                  + Add
+                </button>
+              )}
+            </div>
+
+            {contacts.length === 0 ? (
+              <div
+                className="rounded-xl px-4 py-4 flex items-center justify-between"
+                style={{ border: '1px dashed rgba(241,245,249,0.1)' }}
+              >
+                <p className="text-xs" style={{ color: 'rgba(241,245,249,0.35)' }}>No contacts added yet</p>
+                <button
+                  onClick={() => setContactModal({})}
+                  className="text-xs font-semibold transition-opacity hover:opacity-70"
+                  style={{ color: '#F7620A' }}
+                >
+                  Add Contact
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {contacts.map(c => (
+                  <div
+                    key={c.id}
+                    className="rounded-xl px-4 py-3"
+                    style={{ backgroundColor: 'rgba(241,245,249,0.03)', border: '1px solid rgba(241,245,249,0.07)' }}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                          style={{ backgroundColor: 'rgba(247,98,10,0.15)', color: '#F7620A' }}
+                        >
+                          {c.first_name[0]}{c.last_name?.[0] ?? ''}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-sm font-semibold text-sp-text">
+                              {c.first_name} {c.last_name ?? ''}
+                            </p>
+                            {c.is_primary && (
+                              <span
+                                className="text-xs px-1.5 py-0.5 rounded font-semibold flex-shrink-0"
+                                style={{ backgroundColor: 'rgba(247,98,10,0.15)', color: '#F7620A' }}
+                              >
+                                Primary
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs mt-0.5" style={{ color: 'rgba(241,245,249,0.4)' }}>{c.relationship}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          onClick={() => setContactModal({ existing: c })}
+                          className="text-xs transition-opacity hover:opacity-60"
+                          style={{ color: 'rgba(241,245,249,0.35)' }}
+                        >
+                          Edit
+                        </button>
+                        {confirmDeleteContact === c.id ? (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={async () => { await deleteContact(c.id); setConfirmDeleteContact(null) }}
+                              disabled={deleting}
+                              className="text-xs font-semibold transition-opacity hover:opacity-80"
+                              style={{ color: '#EF4444' }}
+                            >
+                              Remove
+                            </button>
+                            <button
+                              onClick={() => setConfirmDeleteContact(null)}
+                              className="text-xs transition-opacity hover:opacity-60"
+                              style={{ color: 'rgba(241,245,249,0.35)' }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmDeleteContact(c.id)}
+                            className="text-xs transition-opacity hover:opacity-60"
+                            style={{ color: 'rgba(241,245,249,0.3)' }}
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-2 space-y-0.5 pl-10">
+                      {c.phone && (
+                        <a
+                          href={`tel:${c.phone}`}
+                          className="block text-xs transition-opacity hover:opacity-75"
+                          style={{ color: '#22C55E' }}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          📞 {c.phone}
+                        </a>
+                      )}
+                      {c.email && (
+                        <a
+                          href={`mailto:${c.email}`}
+                          className="block text-xs transition-opacity hover:opacity-75"
+                          style={{ color: '#38BDF8' }}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          ✉️ {c.email}
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Footer */}
           <div className="flex items-center justify-between px-6 py-4 flex-shrink-0" style={{ borderTop: '1px solid rgba(241,245,249,0.07)' }}>
             {confirmDelete ? (
@@ -309,6 +445,16 @@ export default function PlayerDetailModal({ player, playerIndex, evals, onClose,
           </div>
         </div>
       </div>
+
+      {/* Contact Modal */}
+      {contactModal !== null && (
+        <ContactModal
+          playerId={player.id}
+          existing={contactModal.existing}
+          isFirst={contacts.length === 0}
+          onClose={() => setContactModal(null)}
+        />
+      )}
 
       {/* Dev Plan Modal (renders on top) */}
       {activePlan && (
