@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { usePracticePlan } from '@/hooks/usePracticePlans'
 import { drills as staticDrills } from '@/data/drills'
 import { useCustomDrills } from '@/hooks/useCustomDrills'
+import { practiceGames } from '@/data/practiceGames'
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function formatTime(secs: number) {
@@ -16,12 +17,14 @@ function formatTime(secs: number) {
 function getCategoryColor(category: string) {
   const map: Record<string, string> = {
     ballhandling: '#F7620A',
-    shooting: '#38BDF8',
-    passing: '#F5B731',
-    defense: '#22C55E',
+    shooting:     '#38BDF8',
+    passing:      '#F5B731',
+    defense:      '#22C55E',
     conditioning: '#E879F9',
-    team: '#8B5CF6',
-    break: '#6B7280',
+    team:         '#8B5CF6',
+    competitive:  '#EF4444',
+    warmup:       '#F5B731',
+    break:        '#6B7280',
   }
   return map[category] ?? '#6B7280'
 }
@@ -77,8 +80,13 @@ function RunInner() {
     return map
   }, [customDrillRows])
 
-  const drillData = current ? allDrillsMap().get(current.drillId) : null
-  const cues: string[] = drillData?.cues ?? []
+  const isGame = current?.drillId.startsWith('game-') ?? false
+  const gameData = isGame
+    ? practiceGames.find(g => g.id === current!.drillId.replace('game-', ''))
+    : null
+  const drillData = (!isGame && current) ? allDrillsMap().get(current.drillId) : null
+  const cues: string[] = gameData?.coachingTips ?? drillData?.cues ?? []
+  const categoryColor = current?.categoryColor ?? getCategoryColor(current?.category ?? '')
 
   function goNext() {
     if (currentIndex < drills.length - 1) {
@@ -176,7 +184,6 @@ function RunInner() {
   if (!current) return null
 
   const isBreak = current.category === 'break'
-  const categoryColor = getCategoryColor(current.category)
   const progress = drills.length > 0 ? ((currentIndex + 1) / drills.length) * 100 : 0
   const timerPct = current.durationMins > 0 ? (timeLeft / (current.durationMins * 60)) * 100 : 0
 
@@ -237,6 +244,19 @@ function RunInner() {
             <p className="text-sm mb-4" style={{ color: 'rgba(241,245,249,0.5)' }}>
               {current.notes}
             </p>
+          )}
+
+          {/* Game info */}
+          {gameData && (
+            <div
+              className="rounded-xl px-4 py-3 mb-4 text-sm"
+              style={{ backgroundColor: 'rgba(241,245,249,0.04)', border: '1px solid rgba(241,245,249,0.08)' }}
+            >
+              <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: 'rgba(241,245,249,0.35)' }}>
+                How to Play
+              </p>
+              <p style={{ color: 'rgba(241,245,249,0.65)', lineHeight: 1.6 }}>{gameData.howToPlay}</p>
+            </div>
           )}
 
           {/* Timer */}

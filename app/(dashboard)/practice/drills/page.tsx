@@ -5,6 +5,7 @@ import { drills as staticDrills, CATEGORY_COLORS, type Drill } from '@/data/dril
 import { useCustomDrills } from '@/hooks/useCustomDrills'
 import DrillCard from './DrillCard'
 import CreateDrillModal from './CreateDrillModal'
+import PracticeSubNav from '../components/PracticeSubNav'
 
 const CATEGORIES = [
   { key: 'all', label: 'All' },
@@ -63,6 +64,7 @@ export default function DrillsPage() {
 
   return (
     <div>
+      <PracticeSubNav />
       {/* Page header */}
       <div className="flex items-center justify-between mb-6">
         <div>

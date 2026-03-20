@@ -85,7 +85,12 @@ function SortableItem({
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-sp-text truncate">{item.name}</p>
+            <p className="text-sm font-semibold text-sp-text truncate flex items-center gap-1.5">
+                  {item.drillId?.startsWith('game-') && (
+                    <span className="flex-shrink-0 text-xs" title="Practice Game">🎮</span>
+                  )}
+                  {item.name}
+                </p>
             {!isBreak && (
               <p className="text-xs mt-0.5" style={{ color: 'rgba(241,245,249,0.4)' }}>
                 {CATEGORY_LABELS[item.category] ?? item.category}

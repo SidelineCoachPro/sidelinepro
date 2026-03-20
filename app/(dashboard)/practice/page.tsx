@@ -2,13 +2,6 @@ import Link from 'next/link'
 
 const sections = [
   {
-    href: '/practice/drills',
-    title: 'Drill Library',
-    description: '20+ built-in drills across all categories. Search, filter, and save custom drills.',
-    color: '#F7620A',
-    icon: '🏀',
-  },
-  {
     href: '/practice/planner',
     title: 'Practice Planner',
     description: 'Build full practice plans with AI generation or drag-and-drop scheduling.',
@@ -16,12 +9,18 @@ const sections = [
     icon: '📋',
   },
   {
-    href: '/practice/templates',
-    title: 'Plan Templates',
-    description: 'Save and reuse your best practice structures.',
-    color: '#F5B731',
-    icon: '⭐',
-    soon: true,
+    href: '/practice/drills',
+    title: 'Drill Library',
+    description: '20+ built-in drills across all categories. Search, filter, and save custom drills.',
+    color: '#F7620A',
+    icon: '🏀',
+  },
+  {
+    href: '/practice/games',
+    title: 'Practice Games',
+    description: '14 competitive games that build skills through fun. End practice on a high note.',
+    color: '#EF4444',
+    icon: '🎮',
   },
 ]
 
@@ -36,36 +35,24 @@ export default function PracticePage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {sections.map(({ href, title, description, color, icon, soon }) => (
+        {sections.map(({ href, title, description, color, icon }) => (
           <Link
             key={href}
-            href={soon ? '#' : href}
-            className={`block rounded-xl p-6 transition-all ${soon ? 'cursor-default' : 'hover:border-opacity-20'}`}
+            href={href}
+            className="block rounded-xl p-6 transition-all hover:border-opacity-20"
             style={{
               backgroundColor: '#0E1520',
               border: '1px solid rgba(241,245,249,0.07)',
             }}
           >
             <div className="text-2xl mb-3">{icon}</div>
-            <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-base font-semibold text-sp-text">{title}</h2>
-              {soon && (
-                <span
-                  className="text-xs px-1.5 py-0.5 rounded font-medium"
-                  style={{ backgroundColor: 'rgba(241,245,249,0.07)', color: 'rgba(241,245,249,0.4)' }}
-                >
-                  Soon
-                </span>
-              )}
-            </div>
+            <h2 className="text-base font-semibold text-sp-text mb-1">{title}</h2>
             <p className="text-sm leading-relaxed" style={{ color: 'rgba(241,245,249,0.4)' }}>
               {description}
             </p>
-            {!soon && (
-              <p className="text-xs font-medium mt-3" style={{ color }}>
-                Open →
-              </p>
-            )}
+            <p className="text-xs font-medium mt-3" style={{ color }}>
+              Open →
+            </p>
           </Link>
         ))}
       </div>

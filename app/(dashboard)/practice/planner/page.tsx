@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { drills as staticDrills } from '@/data/drills'
 import { useCustomDrills } from '@/hooks/useCustomDrills'
@@ -13,6 +13,7 @@ import {
   type PracticePlan,
 } from '@/hooks/usePracticePlans'
 import PlanBuilder from './PlanBuilder'
+import PracticeSubNav from '../components/PracticeSubNav'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const FOCUS_OPTIONS = [
@@ -411,10 +412,35 @@ export default function PlannerPage() {
   const [planDrills, setPlanDrills] = useState<PlanDrill[]>([])
   const [savedPlanId, setSavedPlanId] = useState<string | null>(null)
   const [saveError, setSaveError] = useState('')
+  const [hasQueuedGame, setHasQueuedGame] = useState(false)
+  const [addedGameName, setAddedGameName] = useState('')
 
   const { data: customDrillRows = [] } = useCustomDrills()
   const { mutateAsync: createPlan, isPending: isCreating } = useCreatePracticePlan()
   const { mutateAsync: updatePlan, isPending: isUpdating } = useUpdatePracticePlan()
+
+  // Check for queued game from games library
+  useEffect(() => {
+    setHasQueuedGame(!!localStorage.getItem('sp_queued_game'))
+  }, [])
+
+  // Auto-add queued game when entering building phase
+  useEffect(() => {
+    if (phase !== 'building') return
+    const raw = localStorage.getItem('sp_queued_game')
+    if (!raw) return
+    try {
+      const item = JSON.parse(raw) as PlanDrill
+      setPlanDrills(prev => prev.some(d => d.uid === item.uid) ? prev : [...prev, item])
+      setAddedGameName(item.name)
+      localStorage.removeItem('sp_queued_game')
+      setHasQueuedGame(false)
+      setTimeout(() => setAddedGameName(''), 3000)
+    } catch {
+      localStorage.removeItem('sp_queued_game')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase])
 
   const isSaving = isCreating || isUpdating
 
@@ -498,11 +524,31 @@ export default function PlannerPage() {
 
   if (phase === 'list') {
     return (
-      <SavedPlansList
-        onNew={() => setPhase('settings')}
-        onOpen={handleOpenSaved}
-        onRun={plan => router.push(`/practice/run?id=${plan.id}`)}
-      />
+      <div>
+        <PracticeSubNav />
+        {hasQueuedGame && (
+          <div
+            className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl mb-5"
+            style={{ backgroundColor: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)' }}
+          >
+            <p className="text-sm font-medium" style={{ color: '#22C55E' }}>
+              🎮 A practice game is queued — open or create a plan to add it.
+            </p>
+            <button
+              onClick={() => { localStorage.removeItem('sp_queued_game'); setHasQueuedGame(false) }}
+              className="text-xs transition-opacity hover:opacity-60 flex-shrink-0"
+              style={{ color: 'rgba(34,197,94,0.6)' }}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+        <SavedPlansList
+          onNew={() => setPhase('settings')}
+          onOpen={handleOpenSaved}
+          onRun={plan => router.push(`/practice/run?id=${plan.id}`)}
+        />
+      </div>
     )
   }
 
@@ -512,6 +558,7 @@ export default function PlannerPage() {
 
   return (
     <div>
+      <PracticeSubNav />
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <button
@@ -535,6 +582,14 @@ export default function PlannerPage() {
         <p className="mb-4 text-sm text-red-400 px-3 py-2 rounded-lg" style={{ backgroundColor: 'rgba(239,68,68,0.1)' }}>
           {saveError}
         </p>
+      )}
+      {addedGameName && (
+        <div
+          className="mb-4 px-4 py-2.5 rounded-xl text-sm font-medium"
+          style={{ backgroundColor: 'rgba(34,197,94,0.1)', color: '#22C55E', border: '1px solid rgba(34,197,94,0.2)' }}
+        >
+          🎮 &ldquo;{addedGameName}&rdquo; added to plan
+        </div>
       )}
 
       <PlanBuilder
