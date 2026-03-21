@@ -1,9 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { useTeam } from '@/lib/teamContext'
 
 export interface Game {
   id: string
   coach_id: string
+  team_id: string | null
   opponent: string
   location: string | null
   scheduled_at: string
@@ -61,13 +63,16 @@ function normalizeGame(row: unknown): Game {
 }
 
 export function useGames() {
+  const { activeTeamId } = useTeam()
   return useQuery({
-    queryKey: ['games'],
+    queryKey: ['games', activeTeamId ?? 'all'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from('games')
         .select('*')
         .order('scheduled_at', { ascending: true })
+      if (activeTeamId) q = q.eq('team_id', activeTeamId)
+      const { data, error } = await q
       if (error) throw error
       return (data ?? []).map(row => normalizeGame(row))
     },
@@ -92,13 +97,14 @@ export function useGame(gameId: string) {
 
 export function useCreateGame() {
   const qc = useQueryClient()
+  const { activeTeamId } = useTeam()
   return useMutation({
     mutationFn: async (input: CreateGameInput) => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
       const { data, error } = await supabase
         .from('games')
-        .insert({ ...input, coach_id: user.id })
+        .insert({ ...input, coach_id: user.id, team_id: activeTeamId ?? null })
         .select()
         .single()
       if (error) throw error

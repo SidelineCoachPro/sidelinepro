@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { useTeam } from '@/lib/teamContext'
 import { useGames } from './useGames'
 import { usePracticePlans, type PlanDrill } from './usePracticePlans'
 
@@ -62,18 +63,21 @@ function isoToTime(iso: string): string {
 
 export function useCalendarEventsRaw(year: number, month: number) {
   // month is 1-indexed
+  const { activeTeamId } = useTeam()
   const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0]
   const endDate   = new Date(year, month, 0).toISOString().split('T')[0]
 
   return useQuery({
-    queryKey: ['calendar_events', year, month],
+    queryKey: ['calendar_events', year, month, activeTeamId ?? 'all'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from('calendar_events')
         .select('*')
         .gte('event_date', startDate)
         .lte('event_date', endDate)
         .order('event_date', { ascending: true })
+      if (activeTeamId) q = q.eq('team_id', activeTeamId)
+      const { data, error } = await q
       if (error) throw error
       return (data ?? []) as CalendarEventRow[]
     },
@@ -167,6 +171,7 @@ export function useCalendar(year: number, month: number): CalendarEvent[] {
 
 export function useCreateCalendarEvent() {
   const qc = useQueryClient()
+  const { activeTeamId } = useTeam()
   return useMutation({
     mutationFn: async (input: {
       title: string
@@ -179,7 +184,7 @@ export function useCreateCalendarEvent() {
       if (!user) throw new Error('Not authenticated')
       const { data, error } = await supabase
         .from('calendar_events')
-        .insert({ ...input, coach_id: user.id, event_type: 'other' })
+        .insert({ ...input, coach_id: user.id, event_type: 'other', team_id: activeTeamId ?? null })
         .select()
         .single()
       if (error) throw error

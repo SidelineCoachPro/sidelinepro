@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { useTeam } from '@/lib/teamContext'
 
 export interface PlanDrill {
   uid: string          // unique key within the plan (for DnD)
@@ -14,6 +15,7 @@ export interface PlanDrill {
 export interface PracticePlan {
   id: string
   coach_id: string
+  team_id: string | null
   name: string
   age_group: string | null
   duration_mins: number
@@ -44,13 +46,16 @@ type UpdateInput = Partial<CreateInput> & { id: string }
 const supabase = createClient()
 
 export function usePracticePlans() {
+  const { activeTeamId } = useTeam()
   return useQuery({
-    queryKey: ['practice_plans'],
+    queryKey: ['practice_plans', activeTeamId ?? 'all'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from('practice_plans')
         .select('*')
         .order('created_at', { ascending: false })
+      if (activeTeamId) q = q.eq('team_id', activeTeamId)
+      const { data, error } = await q
       if (error) throw error
       return data as PracticePlan[]
     },
@@ -75,13 +80,14 @@ export function usePracticePlan(id: string | null) {
 
 export function useCreatePracticePlan() {
   const qc = useQueryClient()
+  const { activeTeamId } = useTeam()
   return useMutation({
     mutationFn: async (input: CreateInput) => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
       const { data, error } = await supabase
         .from('practice_plans')
-        .insert({ ...input, coach_id: user.id })
+        .insert({ ...input, coach_id: user.id, team_id: activeTeamId ?? null })
         .select()
         .single()
       if (error) throw error

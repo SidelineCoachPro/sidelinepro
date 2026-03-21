@@ -1,10 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { useTeam } from '@/lib/teamContext'
 
 export interface Evaluation {
   id: string
   player_id: string
   coach_id: string
+  team_id: string | null
   ball_handling: number | null
   shooting: number | null
   passing: number | null
@@ -34,13 +36,16 @@ export type CreateEvalInput = {
 const supabase = createClient()
 
 export function useEvaluations() {
+  const { activeTeamId } = useTeam()
   return useQuery({
-    queryKey: ['evaluations'],
+    queryKey: ['evaluations', activeTeamId ?? 'all'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from('evaluations')
         .select('*')
         .order('evaluated_at', { ascending: true })
+      if (activeTeamId) q = q.eq('team_id', activeTeamId)
+      const { data, error } = await q
       if (error) throw error
       return data as Evaluation[]
     },
@@ -49,13 +54,14 @@ export function useEvaluations() {
 
 export function useCreateEvaluation() {
   const qc = useQueryClient()
+  const { activeTeamId } = useTeam()
   return useMutation({
     mutationFn: async (input: CreateEvalInput) => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
       const { data, error } = await supabase
         .from('evaluations')
-        .insert({ ...input, coach_id: user.id })
+        .insert({ ...input, coach_id: user.id, team_id: activeTeamId ?? null })
         .select()
         .single()
       if (error) throw error

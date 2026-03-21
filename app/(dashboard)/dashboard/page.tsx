@@ -10,6 +10,8 @@ import { usePlayers, type Player } from '@/hooks/usePlayers'
 import { useGames } from '@/hooks/useGames'
 import { useEvaluations, type Evaluation } from '@/hooks/useEvaluations'
 import { usePracticePlans } from '@/hooks/usePracticePlans'
+import { useTeam } from '@/lib/teamContext'
+import { useTeams } from '@/hooks/useTeams'
 
 const barlow = Barlow_Condensed({ subsets: ['latin'], weight: '900' })
 const supabase = createClient()
@@ -98,6 +100,10 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 export default function DashboardPage() {
   const router = useRouter()
+
+  const { activeTeamId } = useTeam()
+  const { data: teams = [] } = useTeams()
+  const activeTeam = teams.find(t => t.id === activeTeamId) ?? null
 
   // Auth user (for first name)
   const { data: authUser } = useQuery({
@@ -264,9 +270,27 @@ export default function DashboardPage() {
         >
           {greeting}
         </h1>
-        <p className="mt-1" style={{ fontSize: 15, color: 'rgba(241,245,249,0.5)' }}>
-          {subtitle}
-        </p>
+        {activeTeam ? (
+          <div className="flex items-center gap-1.5 mt-1">
+            <span style={{ fontSize: 16 }}>{activeTeam.emoji}</span>
+            <span className="text-sm font-semibold" style={{ color: activeTeam.color }}>{activeTeam.name}</span>
+            {activeTeam.age_group && (
+              <span className="text-sm" style={{ color: 'rgba(241,245,249,0.3)' }}>· {activeTeam.age_group}</span>
+            )}
+            {activeTeam.season_year && (
+              <span className="text-sm" style={{ color: 'rgba(241,245,249,0.3)' }}>· {activeTeam.season_year}</span>
+            )}
+          </div>
+        ) : (
+          <p className="mt-1" style={{ fontSize: 15, color: 'rgba(241,245,249,0.5)' }}>
+            {subtitle}
+          </p>
+        )}
+        {activeTeam && (
+          <p className="mt-1" style={{ fontSize: 15, color: 'rgba(241,245,249,0.5)' }}>
+            {subtitle}
+          </p>
+        )}
       </div>
 
       {/* ── Season Stats ── */}

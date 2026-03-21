@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { useTeam } from '@/lib/teamContext'
 
 export interface SeasonPhase {
   name: string
@@ -21,6 +22,7 @@ export interface WeeklyFocus {
 export interface SeasonPlan {
   id: string
   coach_id: string
+  team_id: string | null
   name: string
   season_type: 'rec' | 'aau' | 'school' | 'custom'
   start_date: string
@@ -40,18 +42,21 @@ export interface SeasonPlan {
   updated_at: string
 }
 
-type CreateInput = Omit<SeasonPlan, 'id' | 'coach_id' | 'total_weeks' | 'created_at' | 'updated_at'>
+type CreateInput = Omit<SeasonPlan, 'id' | 'coach_id' | 'team_id' | 'total_weeks' | 'created_at' | 'updated_at'>
 
 const supabase = createClient()
 
 export function useSeasonPlans() {
+  const { activeTeamId } = useTeam()
   return useQuery({
-    queryKey: ['season_plans'],
+    queryKey: ['season_plans', activeTeamId ?? 'all'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from('season_plans')
         .select('*')
         .order('created_at', { ascending: false })
+      if (activeTeamId) q = q.eq('team_id', activeTeamId)
+      const { data, error } = await q
       if (error) throw error
       return (data ?? []) as SeasonPlan[]
     },
@@ -76,13 +81,14 @@ export function useSeasonPlan(id: string | null) {
 
 export function useCreateSeasonPlan() {
   const qc = useQueryClient()
+  const { activeTeamId } = useTeam()
   return useMutation({
     mutationFn: async (input: CreateInput) => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
       const { data, error } = await supabase
         .from('season_plans')
-        .insert({ ...input, coach_id: user.id })
+        .insert({ ...input, coach_id: user.id, team_id: activeTeamId ?? null })
         .select()
         .single()
       if (error) throw error
@@ -113,13 +119,16 @@ export function useUpdateSeasonPlan() {
 }
 
 export function useSeasonPracticeCounts() {
+  const { activeTeamId } = useTeam()
   return useQuery({
-    queryKey: ['season_practice_counts'],
+    queryKey: ['season_practice_counts', activeTeamId ?? 'all'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from('practice_plans')
         .select('season_plan_id')
         .not('season_plan_id', 'is', null)
+      if (activeTeamId) q = q.eq('team_id', activeTeamId)
+      const { data, error } = await q
       if (error) throw error
       const counts: Record<string, number> = {}
       for (const row of data ?? []) {
