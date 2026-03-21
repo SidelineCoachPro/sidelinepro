@@ -16,6 +16,7 @@ import {
 import { useCreatePracticePlan } from '@/hooks/usePracticePlans'
 import { createClient } from '@/lib/supabase/client'
 import { drills as staticDrills } from '@/data/drills'
+import { PLAYS, type PlayCategory } from '@/data/plays'
 import { useEvaluations } from '@/hooks/useEvaluations'
 import { useTeams, type Team } from '@/hooks/useTeams'
 
@@ -229,6 +230,49 @@ function pickDrills(focusAreas: string[], durationMins: number, skillLevel: stri
   }))
 }
 
+// Focus area → play category mapping
+const FOCUS_TO_PLAY_CATS: Record<string, PlayCategory[]> = {
+  'Ball Handling': ['halfcourt', 'transition'],
+  'Shooting':      ['halfcourt', 'timeout'],
+  'Passing':       ['halfcourt', 'transition'],
+  'Defense':       ['defense'],
+  'Conditioning':  ['transition', 'defense'],
+  'Team Play':     ['halfcourt', 'inbounds', 'special'],
+}
+
+const PLAY_DIFFICULTY_FOR_SKILL: Record<string, Array<'beg' | 'int' | 'adv'>> = {
+  'Beginner':    ['beg'],
+  'Intermediate':['beg', 'int'],
+  'Advanced':    ['beg', 'int', 'adv'],
+  'Mixed':       ['beg', 'int'],
+  'All levels':  ['beg', 'int'],
+}
+
+function pickPlay(focusAreas: string[], skillLevel: string, usedPlayIds: Set<string>) {
+  const cats = focusAreas.flatMap(f => FOCUS_TO_PLAY_CATS[f] ?? [])
+  const allowed = PLAY_DIFFICULTY_FOR_SKILL[skillLevel] ?? ['beg', 'int']
+
+  const candidates = PLAYS.filter(
+    p => cats.includes(p.category) && allowed.includes(p.difficulty) && !usedPlayIds.has(p.id)
+  )
+  // Fallback: any allowed difficulty in the cats without the used-play restriction
+  const fallback = candidates.length === 0
+    ? PLAYS.filter(p => cats.includes(p.category) && allowed.includes(p.difficulty))
+    : candidates
+
+  if (fallback.length === 0) return null
+  const play = fallback[Math.floor(Math.random() * fallback.length)]
+  usedPlayIds.add(play.id)
+  return {
+    uid:           `play-${play.id}-${Math.random().toString(36).slice(2, 7)}`,
+    drillId:       `play-${play.id}`,
+    name:          play.name,
+    category:      play.category as string,
+    categoryColor: play.categoryColor,
+    durationMins:  play.suggestedDurationMins,
+  }
+}
+
 // ── Step indicator ────────────────────────────────────────────────────────────
 
 const STEPS = ['Setup', 'Phases', 'Weekly Arc', 'Characters', 'Review']
@@ -275,6 +319,7 @@ interface SetupData {
   practiceDuration: number
   ageGroup: string
   skillLevel: string
+  includePlays: boolean
 }
 
 function Step1Setup({ data, onChange, onNext }: {
@@ -398,6 +443,29 @@ function Step1Setup({ data, onChange, onNext }: {
             {SKILL_LEVELS.map(l => <option key={l} value={l} style={{ backgroundColor: '#0E1520' }}>{l}</option>)}
           </select>
         </div>
+      </div>
+
+      {/* Include plays toggle */}
+      <div
+        className="flex items-center justify-between px-4 py-3 rounded-xl"
+        style={{ backgroundColor: 'rgba(58,134,255,0.06)', border: '1px solid rgba(58,134,255,0.15)' }}
+      >
+        <div>
+          <p className="text-sm font-medium text-sp-text">Include Plays</p>
+          <p className="text-xs mt-0.5" style={{ color: 'rgba(241,245,249,0.4)' }}>
+            Add one X&apos;s &amp; O&apos;s play per practice, matched to each week&apos;s focus
+          </p>
+        </div>
+        <button
+          onClick={() => onChange({ ...data, includePlays: !data.includePlays })}
+          className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors"
+          style={{ backgroundColor: data.includePlays ? '#3A86FF' : 'rgba(241,245,249,0.12)' }}
+        >
+          <span
+            className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform"
+            style={{ transform: data.includePlays ? 'translateX(22px)' : 'translateX(2px)' }}
+          />
+        </button>
       </div>
 
       {error && <p className="text-sm text-red-400 px-3 py-2 rounded-lg" style={{ backgroundColor: 'rgba(239,68,68,0.08)' }}>{error}</p>}
@@ -1151,6 +1219,7 @@ export default function SeasonPlanPage() {
     startDate: '', endDate: '',
     practicesPerWeek: 2, practiceDuration: 75,
     ageGroup: 'U12', skillLevel: 'Mixed',
+    includePlays: true,
   })
 
   const totalWeeks = calcTotalWeeks(setup.startDate, setup.endDate)
@@ -1170,6 +1239,7 @@ export default function SeasonPlanPage() {
       practiceDuration: plan.practice_duration_mins,
       ageGroup: plan.age_group ?? 'U12',
       skillLevel: plan.skill_level,
+      includePlays: true,
     })
     setPhases(plan.phases)
     setWeeklyArc(plan.weekly_focus_rotation)
@@ -1180,7 +1250,7 @@ export default function SeasonPlanPage() {
 
   function startNew() {
     setEditingPlanId(null)
-    setSetup({ name: '', seasonType: 'rec', startDate: '', endDate: '', practicesPerWeek: 2, practiceDuration: 75, ageGroup: 'U12', skillLevel: 'Mixed' })
+    setSetup({ name: '', seasonType: 'rec', startDate: '', endDate: '', practicesPerWeek: 2, practiceDuration: 75, ageGroup: 'U12', skillLevel: 'Mixed', includePlays: true })
     setPhases([])
     setWeeklyArc([])
     setThemeSequence(RECOMMENDED_THEMES)
@@ -1280,11 +1350,16 @@ export default function SeasonPlanPage() {
 
       // 2. Generate practice plans for each week × practice
       let count = 0
+      const usedPlayIds = new Set<string>()
       try {
         for (const wk of weeklyArc) {
           for (let p = 1; p <= setup.practicesPerWeek; p++) {
             const focusAreas = [wk.primaryFocus, wk.secondaryFocus].filter(Boolean)
-            const drillList  = pickDrills(focusAreas, setup.practiceDuration, setup.skillLevel)
+            const drillList: import('@/hooks/usePracticePlans').PlanDrill[] = pickDrills(focusAreas, setup.practiceDuration, setup.skillLevel)
+            if (setup.includePlays) {
+              const play = pickPlay(focusAreas, setup.skillLevel, usedPlayIds)
+              if (play) drillList.push(play)
+            }
             const dateStr    = calcPracticeDate(setup.startDate, wk.week, p, setup.practicesPerWeek)
             count++
 
