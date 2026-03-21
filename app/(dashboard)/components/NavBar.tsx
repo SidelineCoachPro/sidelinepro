@@ -11,11 +11,32 @@ import { useTeams, useCreateTeam, type Team } from '@/hooks/useTeams'
 const barlow = Barlow_Condensed({ subsets: ['latin'], weight: '900' })
 
 const navLinks = [
-  { href: '/practice', label: 'Practice' },
-  { href: '/players',  label: 'Players' },
-  { href: '/calendar', label: 'Calendar' },
-  { href: '/game',     label: 'Game Day' },
-  { href: '/comms',    label: 'Communications' },
+  { href: '/practice', label: 'Practice', icon: (
+    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+    </svg>
+  )},
+  { href: '/players',  label: 'Players', icon: (
+    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  )},
+  { href: '/calendar', label: 'Calendar', icon: (
+    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+  )},
+  { href: '/game',     label: 'Game Day', icon: (
+    <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+      <circle cx="12" cy="12" r="9" strokeLinecap="round" strokeLinejoin="round"/>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.5 2 4 5 4 9s-1.5 7-4 9M12 3c-2.5 2-4 5-4 9s1.5 7 4 9M3 12h18"/>
+    </svg>
+  )},
+  { href: '/comms',    label: 'Comms', icon: (
+    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+    </svg>
+  )},
 ]
 
 const PRESET_EMOJIS = ['🏀', '⚽', '🏈', '⚾', '🏐', '🎾', '🏒', '🥊', '🏆', '🔥', '⭐', '💪', '🦁', '🐯', '🦅', '🐻']
@@ -355,21 +376,24 @@ export default function NavBar({ email }: { email: string }) {
             </div>
 
             {/* Desktop nav links */}
-            <div className="hidden md:flex items-center gap-6 flex-1">
-              {navLinks.map(({ href, label }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  className="text-sm font-medium transition-colors hover:text-sp-text"
-                  style={{
-                    color: pathname.startsWith(href)
-                      ? '#F7620A'
-                      : 'rgba(241,245,249,0.45)',
-                  }}
-                >
-                  {label}
-                </Link>
-              ))}
+            <div className="hidden md:flex items-center gap-1 flex-1">
+              {navLinks.map(({ href, label, icon }) => {
+                const active = pathname.startsWith(href)
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all"
+                    style={{
+                      color: active ? '#F7620A' : 'rgba(241,245,249,0.45)',
+                      backgroundColor: active ? 'rgba(247,98,10,0.08)' : 'transparent',
+                    }}
+                  >
+                    {icon}
+                    {label}
+                  </Link>
+                )
+              })}
             </div>
 
             {/* User + sign out */}
@@ -454,18 +478,19 @@ export default function NavBar({ email }: { email: string }) {
             </div>
 
             {/* Nav links */}
-            {navLinks.map(({ href, label }) => (
+            {navLinks.map(({ href, label, icon }) => (
               <Link
                 key={href}
                 href={href}
                 onClick={() => setMobileOpen(false)}
-                className="block py-2.5 text-sm font-medium"
+                className="flex items-center gap-2.5 py-2.5 text-sm font-medium"
                 style={{
                   color: pathname.startsWith(href)
                     ? '#F7620A'
                     : 'rgba(241,245,249,0.45)',
                 }}
               >
+                {icon}
                 {label}
               </Link>
             ))}
