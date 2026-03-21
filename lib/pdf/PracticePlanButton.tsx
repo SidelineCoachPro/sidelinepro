@@ -25,7 +25,7 @@ export default function PracticePlanButton({
       style={style}
     >
       {({ loading, error }) => {
-        if (error) return '⚠ PDF Error'
+        if (error) { console.error('PracticePlanPDF error:', error); return '⚠ PDF Error' }
         return loading ? 'Preparing...' : '↓ PDF'
       }}
     </PDFDownloadLink>

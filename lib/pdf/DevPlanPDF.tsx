@@ -69,7 +69,7 @@ const s = StyleSheet.create({
   gradeText:    { fontSize: 42, fontWeight: 700, color: PDF_COLORS.orange, marginBottom: 4 },
   gradeScore:   { fontSize: 11, color: PDF_COLORS.muted, marginBottom: 8 },
   gradeDate:    { fontSize: 8, color: PDF_COLORS.muted, textAlign: 'center' },
-  insight:      { fontSize: 8, color: PDF_COLORS.ink, fontStyle: 'italic', textAlign: 'center', lineHeight: 1.5, marginTop: 6 },
+  insight:      { fontSize: 8, color: PDF_COLORS.ink, textAlign: 'center', lineHeight: 1.5, marginTop: 6 },
   // Drill card
   drillCard:    { backgroundColor: PDF_COLORS.lightbg, borderRadius: 6, padding: 12, marginBottom: 8 },
   drillHeader:  { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },

@@ -136,7 +136,7 @@ export default function PracticePlanPDF({
         <Text style={s.planMeta}>
           {[plan.age_group, `${totalMins} min`, `${plan.drills.length} drills`].filter(Boolean).join(' · ')}
         </Text>
-        {theme ? <Text style={s.themeBadge}>⚡ Theme: {theme}</Text> : null}
+        {theme ? <Text style={s.themeBadge}>Theme: {theme}</Text> : null}
 
         {/* Focus pills */}
         {(plan.focus_areas ?? []).length > 0 && (
@@ -201,7 +201,7 @@ export default function PracticePlanPDF({
 
               {/* Coach notes (custom) */}
               {drill.notes ? (
-                <Text style={[s.bodyText, { fontStyle: 'italic', color: PDF_COLORS.muted }]}>
+                <Text style={[s.bodyText, { color: PDF_COLORS.muted }]}>
                   Note: {drill.notes}
                 </Text>
               ) : null}
@@ -244,7 +244,7 @@ export default function PracticePlanPDF({
           <>
             <Text style={baseStyles.sectionTitle}>Closing Reflection</Text>
             <View style={baseStyles.orangeCard}>
-              <Text style={{ fontSize: 9, color: PDF_COLORS.ink, lineHeight: 1.6, fontStyle: 'italic' }}>
+              <Text style={{ fontSize: 9, color: PDF_COLORS.ink, lineHeight: 1.6 }}>
                 {themeContent.closer}
               </Text>
             </View>

@@ -34,7 +34,7 @@ export default function DevPlanButton({
       style={style}
     >
       {({ loading, error }) => {
-        if (error) return '⚠ PDF Error'
+        if (error) { console.error('DevPlanPDF error:', error); return '⚠ PDF Error' }
         return loading ? 'Preparing...' : '↓ PDF'
       }}
     </PDFDownloadLink>
