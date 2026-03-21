@@ -1040,7 +1040,7 @@ export default function SeasonPlanPage() {
   const { data: evaluations = [] } = useEvaluations()
   const { mutateAsync: createSeasonPlan } = useCreateSeasonPlan()
   const { mutateAsync: createPracticePlan } = useCreatePracticePlan()
-  const { mutate: deleteSeasonPlan } = useDeleteSeasonPlan()
+  const { mutate: deleteSeasonPlan, mutateAsync: deleteSeasonPlanAsync } = useDeleteSeasonPlan()
 
   const [mode, setMode] = useState<'list' | 'wizard'>('list')
   const [step, setStep] = useState(0)
@@ -1154,32 +1154,32 @@ export default function SeasonPlanPage() {
 
       // 2. Generate practice plans for each week × practice
       let count = 0
-      for (const wk of weeklyArc) {
-        for (let p = 1; p <= setup.practicesPerWeek; p++) {
-          const focusAreas = [wk.primaryFocus, wk.secondaryFocus].filter(Boolean)
-          const drillList  = pickDrills(focusAreas, setup.practiceDuration, setup.skillLevel)
-          const dateStr    = calcPracticeDate(setup.startDate, wk.week, p, setup.practicesPerWeek)
-          const totalPractices = totalWeeks * setup.practicesPerWeek
-          count++
+      try {
+        for (const wk of weeklyArc) {
+          for (let p = 1; p <= setup.practicesPerWeek; p++) {
+            const focusAreas = [wk.primaryFocus, wk.secondaryFocus].filter(Boolean)
+            const drillList  = pickDrills(focusAreas, setup.practiceDuration, setup.skillLevel)
+            const dateStr    = calcPracticeDate(setup.startDate, wk.week, p, setup.practicesPerWeek)
+            count++
 
-          await createPracticePlan({
-            name:             `Week ${wk.week}, Practice ${p} — ${wk.primaryFocus}`,
-            age_group:        setup.ageGroup,
-            duration_mins:    setup.practiceDuration,
-            focus_areas:      focusAreas,
-            character_theme:  wk.characterTheme || null,
-            drills:           drillList,
-            is_template:      false,
-            // @ts-expect-error — season fields not yet in CreateInput type but exist in DB
-            season_plan_id:   seasonPlan.id,
-            week_number:      wk.week,
-            practice_number_in_week: p,
-            phase_name:       getPhaseName(wk.week, phases),
-            season_position:  `Week ${wk.week}, Practice ${p} of ${totalPractices}`,
-            scheduled_date:   dateStr,
-          })
-          setProgress(count)
+            await createPracticePlan({
+              name:            `Week ${wk.week}, Practice ${p} — ${wk.primaryFocus}`,
+              age_group:       setup.ageGroup,
+              duration_mins:   setup.practiceDuration,
+              focus_areas:     focusAreas,
+              character_theme: wk.characterTheme || null,
+              drills:          drillList,
+              is_template:     false,
+              season_plan_id:  seasonPlan.id,
+              scheduled_date:  dateStr,
+            })
+            setProgress(count)
+          }
         }
+      } catch (genErr) {
+        // Roll back: delete the season plan row (cascades to any practice plans already created)
+        await deleteSeasonPlanAsync(seasonPlan.id)
+        throw genErr
       }
 
       setMode('list')

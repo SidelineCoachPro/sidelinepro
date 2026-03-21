@@ -35,6 +35,8 @@ type CreateInput = {
   character_theme?: string | null
   drills: PlanDrill[]
   is_template?: boolean
+  season_plan_id?: string | null
+  scheduled_date?: string | null
 }
 
 type UpdateInput = Partial<CreateInput> & { id: string }
