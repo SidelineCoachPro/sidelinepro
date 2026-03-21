@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { drills as staticDrills } from '@/data/drills'
 import { useCustomDrills } from '@/hooks/useCustomDrills'
 import {
@@ -12,8 +13,11 @@ import {
   type PlanDrill,
   type PracticePlan,
 } from '@/hooks/usePracticePlans'
+import { useCoachName } from '@/hooks/useCoachName'
 import PlanBuilder from './PlanBuilder'
 import PracticeSubNav from '../components/PracticeSubNav'
+
+const PracticePlanButton = dynamic(() => import('@/lib/pdf/PracticePlanButton'), { ssr: false })
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const FOCUS_OPTIONS = [
@@ -54,6 +58,7 @@ function SavedPlansList({
 }) {
   const { data: plans = [], isLoading } = usePracticePlans()
   const { mutate: deletePlan } = useDeletePracticePlan()
+  const coachName = useCoachName()
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   function formatDate(iso: string) {
@@ -176,6 +181,17 @@ function SavedPlansList({
                       >
                         ✕
                       </button>
+                      <PracticePlanButton
+                        plan={plan}
+                        coachName={coachName}
+                        className="text-xs px-3 py-1.5 rounded-lg font-medium transition-opacity hover:opacity-85"
+                        style={{
+                          textDecoration: 'none',
+                          backgroundColor: 'rgba(241,245,249,0.06)',
+                          color: 'rgba(241,245,249,0.6)',
+                          border: '1px solid rgba(241,245,249,0.08)',
+                        }}
+                      />
                       <button
                         onClick={() => onOpen(plan)}
                         className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors"

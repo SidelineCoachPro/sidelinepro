@@ -1,9 +1,14 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import { type Player } from '@/hooks/usePlayers'
 import { type DevPlan } from '@/hooks/useDevPlans'
+import { useEvaluations } from '@/hooks/useEvaluations'
 import { useParentContacts } from '@/hooks/useParentContacts'
+import { useCoachName } from '@/hooks/useCoachName'
 import { SKILLS } from './evalUtils'
+
+const DevPlanButton = dynamic(() => import('@/lib/pdf/DevPlanButton'), { ssr: false })
 
 interface Props {
   player: Player
@@ -25,6 +30,12 @@ function formatDate(iso: string) {
 export default function DevPlanModal({ player, plan, onClose }: Props) {
   const skillLabel = SKILL_LABEL[plan.focus_skill] ?? plan.focus_skill
   const skillColor = SKILL_COLOR[plan.focus_skill] ?? '#F7620A'
+
+  const coachName = useCoachName()
+  const { data: allEvals = [] } = useEvaluations()
+  const evaluation = plan.evaluation_id
+    ? (allEvals.find(e => e.id === plan.evaluation_id) ?? null)
+    : null
 
   const { data: contacts = [] } = useParentContacts(player.id)
   const primary = contacts.find(c => c.is_primary) ?? contacts[0] ?? null
@@ -180,9 +191,22 @@ export default function DevPlanModal({ player, plan, onClose }: Props) {
 
         {/* Footer */}
         <div
-          className="flex-shrink-0 px-6 py-4 flex justify-end"
+          className="flex-shrink-0 px-6 py-4 flex items-center justify-between"
           style={{ borderTop: '1px solid rgba(241,245,249,0.07)' }}
         >
+          <DevPlanButton
+            plan={plan}
+            player={player}
+            evaluation={evaluation}
+            coachName={coachName}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg transition-opacity hover:opacity-85"
+            style={{
+              textDecoration: 'none',
+              backgroundColor: 'rgba(247,98,10,0.12)',
+              color: '#F7620A',
+              border: '1px solid rgba(247,98,10,0.25)',
+            }}
+          />
           <button
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium rounded-lg transition-opacity hover:opacity-75"
