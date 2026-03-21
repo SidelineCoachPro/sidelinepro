@@ -13,6 +13,7 @@ import DevPlanModal from './DevPlanModal'
 import HeatmapView from './HeatmapView'
 import ProgressView from './ProgressView'
 import { PLAYER_COLORS, SKILLS, gradeColor, playerInitials, formatEvalDate, type SkillKey } from './evalUtils'
+import PlayersSubNav from './components/PlayersSubNav'
 
 const barlow = Barlow_Condensed({ subsets: ['latin'], weight: '900' })
 
@@ -279,6 +280,7 @@ export default function PlayersPage() {
 
   return (
     <div>
+      <PlayersSubNav />
       {/* Page header */}
       <div className="flex items-center justify-between mb-6">
         <div>

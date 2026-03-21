@@ -56,6 +56,34 @@ export function useCreatePlayer() {
   })
 }
 
+export function useUpdatePlayer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<Player> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('players')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+      return data as Player
+    },
+    onMutate: async ({ id, ...updates }) => {
+      await qc.cancelQueries({ queryKey: ['players'] })
+      const previous = qc.getQueryData<Player[]>(['players'])
+      qc.setQueryData<Player[]>(['players'], old =>
+        old?.map(p => p.id === id ? { ...p, ...updates } : p) ?? []
+      )
+      return { previous }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) qc.setQueryData(['players'], context.previous)
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['players'] }),
+  })
+}
+
 export function useDeletePlayer() {
   const qc = useQueryClient()
   return useMutation({

@@ -70,7 +70,22 @@ export function useUpdateParentContact() {
       if (error) throw error
       return data as ParentContact
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['parent_contacts'] }),
+    onMutate: async ({ id, player_id: _pid, ...updates }) => {
+      await qc.cancelQueries({ queryKey: ['parent_contacts'] })
+      const snapshot = qc.getQueriesData<ParentContact[]>({ queryKey: ['parent_contacts'] })
+      qc.setQueriesData<ParentContact[]>({ queryKey: ['parent_contacts'] }, old =>
+        old?.map(c => c.id === id ? { ...c, ...updates } : c) ?? []
+      )
+      return { snapshot }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.snapshot) {
+        for (const [key, data] of context.snapshot) {
+          qc.setQueryData(key, data)
+        }
+      }
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['parent_contacts'] }),
   })
 }
 

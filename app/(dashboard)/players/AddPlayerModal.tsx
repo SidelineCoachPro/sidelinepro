@@ -1,12 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { useCreatePlayer } from '@/hooks/usePlayers'
+import { useCreatePlayer, type Player } from '@/hooks/usePlayers'
 
 const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C', 'G', 'F']
 const labelStyle = { color: 'rgba(241,245,249,0.6)', fontSize: '13px', fontWeight: 500 } as const
 
-export default function AddPlayerModal({ onClose }: { onClose: () => void }) {
+export default function AddPlayerModal({ onClose, onSuccess }: { onClose: () => void; onSuccess?: (player: Player) => void }) {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName]   = useState('')
   const [jersey, setJersey]       = useState('')
@@ -21,13 +21,14 @@ export default function AddPlayerModal({ onClose }: { onClose: () => void }) {
     if (!firstName.trim()) { setError('First name is required'); return }
     setError('')
     try {
-      await mutateAsync({
+      const player = await mutateAsync({
         first_name:    firstName.trim(),
         last_name:     lastName.trim() || null,
         jersey_number: jersey.trim() || null,
         position:      position || null,
         age:           age ? parseInt(age) : null,
       })
+      onSuccess?.(player)
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add player')

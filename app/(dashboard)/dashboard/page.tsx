@@ -499,6 +499,7 @@ export default function DashboardPage() {
                   { icon: '📊', label: 'Evaluate a Player',  action: () => router.push('/players?openEval=true') },
                   { icon: '🏀', label: 'Add a Game',          action: () => router.push('/game?openAdd=true') },
                   { icon: '📣', label: 'Message Parents',     action: openCommsPanel },
+                  { icon: '👥', label: 'Manage Roster',       action: () => router.push('/players/roster') },
                 ] as const).map(({ icon, label, action }) => (
                   <button
                     key={label}
