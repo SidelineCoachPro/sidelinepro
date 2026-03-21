@@ -1,13 +1,22 @@
 import { StyleSheet, Font } from '@react-pdf/renderer'
 
-// Register fonts
+// Inter via jsDelivr — WOFF format, confirmed accessible
 Font.register({
   family: 'Inter',
   fonts: [
-    { src: 'https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiJ-Ek-_EeA.woff2' },
-    { src: 'https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuI6fAZ9hiJ-Ek-_EeA.woff2', fontWeight: 700 },
+    {
+      src: 'https://cdn.jsdelivr.net/npm/@fontsource/inter@4.5.15/files/inter-latin-400-normal.woff',
+      fontWeight: 400,
+    },
+    {
+      src: 'https://cdn.jsdelivr.net/npm/@fontsource/inter@4.5.15/files/inter-latin-700-normal.woff',
+      fontWeight: 700,
+    },
   ],
 })
+
+// Hyphenation off — avoids rendering stalls on long words
+Font.registerHyphenationCallback(w => [w])
 
 export const PDF_COLORS = {
   orange:   '#F7620A',

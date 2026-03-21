@@ -135,7 +135,7 @@ export default function DevPlanPDF({
     <Document title={`${playerFullName} Development Plan`} author="SidelinePro">
       <Page size="LETTER" style={baseStyles.page}>
         {/* ── Header ──────────────────────────────── */}
-        <View style={baseStyles.headerBar} fixed>
+        <View style={baseStyles.headerBar}>
           <View>
             <Text style={baseStyles.logo}>SidelinePro</Text>
             <Text style={baseStyles.logoSub}>sidelinecoachpro.com</Text>

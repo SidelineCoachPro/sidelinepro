@@ -33,7 +33,10 @@ export default function DevPlanButton({
       className={className}
       style={style}
     >
-      {({ loading }) => loading ? 'Preparing...' : '↓ PDF'}
+      {({ loading, error }) => {
+        if (error) return '⚠ PDF Error'
+        return loading ? 'Preparing...' : '↓ PDF'
+      }}
     </PDFDownloadLink>
   )
 }
