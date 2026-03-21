@@ -53,6 +53,7 @@ export function usePracticePlans() {
       let q = supabase
         .from('practice_plans')
         .select('*')
+        .order('scheduled_date', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: false })
       if (activeTeamId) q = q.eq('team_id', activeTeamId)
       const { data, error } = await q

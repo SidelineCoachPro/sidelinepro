@@ -15,6 +15,8 @@ import {
   type PracticePlan,
 } from '@/hooks/usePracticePlans'
 import { useCoachName } from '@/hooks/useCoachName'
+import { useTeam } from '@/lib/teamContext'
+import { useTeams } from '@/hooks/useTeams'
 import PlanBuilder from './PlanBuilder'
 import PracticeSubNav from '../components/PracticeSubNav'
 
@@ -112,6 +114,9 @@ function SavedPlansList({
   const { data: plans = [], isLoading } = usePracticePlans()
   const { mutate: deletePlan } = useDeletePracticePlan()
   const coachName = useCoachName()
+  const { activeTeamId } = useTeam()
+  const { data: teams = [] } = useTeams()
+  const teamMap = Object.fromEntries(teams.map(t => [t.id, t]))
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [schedulingId, setSchedulingId] = useState<string | null>(null)
 
@@ -171,7 +176,20 @@ function SavedPlansList({
               >
                 {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-sp-text truncate">{plan.name}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold text-sp-text truncate">{plan.name}</p>
+                    {!activeTeamId && plan.team_id && teamMap[plan.team_id] && (
+                      <span
+                        className="text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0"
+                        style={{
+                          backgroundColor: `${teamMap[plan.team_id].color}18`,
+                          color: teamMap[plan.team_id].color,
+                        }}
+                      >
+                        {teamMap[plan.team_id].emoji} {teamMap[plan.team_id].name}
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center flex-wrap gap-2 mt-1">
                     {plan.age_group && (
                       <span className="text-xs" style={{ color: 'rgba(241,245,249,0.4)' }}>{plan.age_group}</span>
