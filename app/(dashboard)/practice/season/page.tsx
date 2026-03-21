@@ -17,6 +17,7 @@ import { useCreatePracticePlan } from '@/hooks/usePracticePlans'
 import { createClient } from '@/lib/supabase/client'
 import { drills as staticDrills } from '@/data/drills'
 import { useEvaluations } from '@/hooks/useEvaluations'
+import { useTeams, type Team } from '@/hooks/useTeams'
 
 const barlow = Barlow_Condensed({ subsets: ['latin'], weight: '900' })
 
@@ -1027,16 +1028,33 @@ function Step5Review({ setup, phases, weeks, themes, onSaveDraft, onGenerate, on
 
 // ── Season Plan List ──────────────────────────────────────────────────────────
 
-function SeasonPlanCard({ plan, practiceCount, onDelete, onEdit }: { plan: SeasonPlan; practiceCount: number | undefined; onDelete: () => void; onEdit: () => void }) {
+function SeasonPlanCard({ plan, practiceCount, team, onDelete, onEdit }: { plan: SeasonPlan; practiceCount: number | undefined; team?: Team | null; onDelete: () => void; onEdit: () => void }) {
   const [confirmDel, setConfirmDel] = useState(false)
   const totalPractices = practiceCount ?? plan.total_weeks * plan.practices_per_week
+  const accentColor = team?.color ?? '#F7620A'
 
   return (
-    <div className="rounded-xl p-5" style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.07)' }}>
+    <div
+      className="rounded-xl overflow-hidden"
+      style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.07)', borderLeft: `3px solid ${accentColor}` }}
+    >
+      {/* Team header band */}
+      {team && (
+        <div
+          className="flex items-center gap-2 px-5 py-2"
+          style={{ backgroundColor: `${accentColor}12`, borderBottom: `1px solid ${accentColor}25` }}
+        >
+          <span style={{ fontSize: 18 }}>{team.emoji}</span>
+          <span className="text-xs font-bold tracking-wide" style={{ color: accentColor }}>{team.name}</span>
+          {team.age_group && <span className="text-xs" style={{ color: 'rgba(241,245,249,0.35)' }}>· {team.age_group}</span>}
+          {team.season_year && <span className="text-xs" style={{ color: 'rgba(241,245,249,0.35)' }}>· {team.season_year}</span>}
+        </div>
+      )}
+      <div className="p-5">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-bold px-2 py-0.5 rounded uppercase" style={{ backgroundColor: 'rgba(247,98,10,0.1)', color: '#F7620A' }}>
+            <span className="text-xs font-bold px-2 py-0.5 rounded uppercase" style={{ backgroundColor: `${accentColor}18`, color: accentColor }}>
               {plan.season_type}
             </span>
             <span className="text-xs px-2 py-0.5 rounded capitalize" style={{
@@ -1102,6 +1120,7 @@ function SeasonPlanCard({ plan, practiceCount, onDelete, onEdit }: { plan: Seaso
           Calendar
         </Link>
       </div>
+      </div>
     </div>
   )
 }
@@ -1112,6 +1131,8 @@ export default function SeasonPlanPage() {
   const { data: seasonPlans = [], isLoading: plansLoading } = useSeasonPlans()
   const { data: practiceCounts = {} } = useSeasonPracticeCounts()
   const { data: evaluations = [] } = useEvaluations()
+  const { data: teams = [] } = useTeams()
+  const teamMap = Object.fromEntries(teams.map(t => [t.id, t]))
   const { mutateAsync: createSeasonPlan } = useCreateSeasonPlan()
   const { mutateAsync: updateSeasonPlan } = useUpdateSeasonPlan()
   const { mutateAsync: createPracticePlan } = useCreatePracticePlan()
@@ -1332,7 +1353,7 @@ export default function SeasonPlanPage() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {seasonPlans.map(plan => (
-              <SeasonPlanCard key={plan.id} plan={plan} practiceCount={practiceCounts[plan.id]} onDelete={() => deleteSeasonPlan(plan.id)} onEdit={() => startEdit(plan)} />
+              <SeasonPlanCard key={plan.id} plan={plan} practiceCount={practiceCounts[plan.id]} team={plan.team_id ? teamMap[plan.team_id] : null} onDelete={() => deleteSeasonPlan(plan.id)} onEdit={() => startEdit(plan)} />
             ))}
           </div>
         )}

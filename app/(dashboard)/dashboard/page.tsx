@@ -7,9 +7,9 @@ import { useRouter } from 'next/navigation'
 import { Barlow_Condensed } from 'next/font/google'
 import { createClient } from '@/lib/supabase/client'
 import { usePlayers, type Player } from '@/hooks/usePlayers'
-import { useGames } from '@/hooks/useGames'
+import { useGames, type Game } from '@/hooks/useGames'
 import { useEvaluations, type Evaluation } from '@/hooks/useEvaluations'
-import { usePracticePlans } from '@/hooks/usePracticePlans'
+import { usePracticePlans, type PracticePlan } from '@/hooks/usePracticePlans'
 import { useTeam } from '@/lib/teamContext'
 import { useTeams } from '@/hooks/useTeams'
 
@@ -96,12 +96,149 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
+// ── Attention players helper ───────────────────────────────────────────────────
+
+function computeAttentionPlayers(players: Player[], evals: Evaluation[], limit = 3) {
+  const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000
+  const now = Date.now()
+  const latestEval = new Map<string, Evaluation>()
+  for (const e of evals) {
+    const cur = latestEval.get(e.player_id)
+    if (!cur || new Date(e.evaluated_at) > new Date(cur.evaluated_at)) latestEval.set(e.player_id, e)
+  }
+  const seen = new Set<string>()
+  const result: Array<{ player: Player; badge: string; badgeColor: string }> = []
+  for (const p of players) {
+    const ev = latestEval.get(p.id)
+    if (!ev) { result.push({ player: p, badge: 'No eval yet', badgeColor: '#6B7280' }); seen.add(p.id) }
+    else if (now - new Date(ev.evaluated_at).getTime() > THIRTY_DAYS) {
+      result.push({ player: p, badge: `${Math.floor((now - new Date(ev.evaluated_at).getTime()) / 86400000)}d ago`, badgeColor: '#F5B731' })
+      seen.add(p.id)
+    }
+  }
+  for (const p of players) {
+    if (seen.has(p.id)) continue
+    const ev = latestEval.get(p.id)
+    if (ev?.grade?.startsWith('D')) result.push({ player: p, badge: `${ev.grade} · ${ev.overall_avg?.toFixed(1)}`, badgeColor: '#EF4444' })
+  }
+  return result.slice(0, limit)
+}
+
+// ── Team summary card (All Teams view) ────────────────────────────────────────
+
+interface TeamSection {
+  team: import('@/hooks/useTeams').Team
+  players: Player[]
+  plans: PracticePlan[]
+  nextGame: Game | null
+  nextPractice: PracticePlan | null
+  attentionPlayers: Array<{ player: Player; badge: string; badgeColor: string }>
+  record: string
+}
+
+function TeamSummaryCard({ section, onSwitch }: { section: TeamSection; onSwitch: () => void }) {
+  const { team, players, plans, nextGame, nextPractice, attentionPlayers, record } = section
+  const hasContent = nextGame || nextPractice || attentionPlayers.length > 0
+
+  return (
+    <div
+      className="rounded-2xl overflow-hidden"
+      style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.07)', borderLeft: `3px solid ${team.color}` }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid rgba(241,245,249,0.05)' }}>
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span style={{ fontSize: 22, flexShrink: 0 }}>{team.emoji}</span>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-sp-text leading-tight">{team.name}</p>
+            <p className="text-xs leading-tight mt-0.5" style={{ color: 'rgba(241,245,249,0.35)' }}>
+              {[team.team_type, team.age_group, team.season_year].filter(Boolean).join(' · ')}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={onSwitch}
+          className="text-xs font-bold px-2.5 py-1.5 rounded-lg flex-shrink-0 ml-2"
+          style={{ backgroundColor: `${team.color}15`, color: team.color, border: `1px solid ${team.color}30` }}
+        >
+          View →
+        </button>
+      </div>
+
+      {/* Mini stats */}
+      <div className="grid grid-cols-3" style={{ borderBottom: '1px solid rgba(241,245,249,0.05)' }}>
+        {[
+          { value: players.length, label: 'Players' },
+          { value: record, label: 'Record' },
+          { value: plans.length, label: 'Practices' },
+        ].map((s, i) => (
+          <div key={s.label} className="py-2.5 text-center" style={i < 2 ? { borderRight: '1px solid rgba(241,245,249,0.05)' } : undefined}>
+            <p className="text-base font-bold text-sp-text">{s.value}</p>
+            <p className="text-xs" style={{ color: 'rgba(241,245,249,0.35)' }}>{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Upcoming */}
+      {(nextGame || nextPractice) && (
+        <div className="px-4 py-3 space-y-1.5" style={{ borderBottom: attentionPlayers.length > 0 ? '1px solid rgba(241,245,249,0.05)' : 'none' }}>
+          {nextGame && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold w-14 flex-shrink-0" style={{ color: '#F7620A' }}>Game</span>
+              <span className="text-xs text-sp-text truncate flex-1">vs {nextGame.opponent}</span>
+              <span className="text-xs flex-shrink-0" style={{ color: 'rgba(241,245,249,0.35)' }}>{formatDateShort(nextGame.scheduled_at)}</span>
+            </div>
+          )}
+          {nextPractice && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold w-14 flex-shrink-0" style={{ color: '#0ECFB0' }}>Practice</span>
+              <span className="text-xs text-sp-text truncate flex-1">{nextPractice.name}</span>
+              {nextPractice.scheduled_date && (
+                <span className="text-xs flex-shrink-0" style={{ color: 'rgba(241,245,249,0.35)' }}>
+                  {new Date(nextPractice.scheduled_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Players to watch */}
+      {attentionPlayers.length > 0 && (
+        <div className="px-4 py-3">
+          <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(241,245,249,0.25)' }}>Players to Watch</p>
+          <div className="space-y-2">
+            {attentionPlayers.map(({ player, badge, badgeColor }, idx) => (
+              <div key={player.id} className="flex items-center gap-2">
+                <div
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                  style={{ backgroundColor: `${PLAYER_COLORS[idx % PLAYER_COLORS.length]}22`, color: PLAYER_COLORS[idx % PLAYER_COLORS.length] }}
+                >
+                  {initials(player)}
+                </div>
+                <span className="text-xs text-sp-text flex-1 truncate">{player.first_name} {player.last_name ?? ''}</span>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded flex-shrink-0" style={{ backgroundColor: `${badgeColor}18`, color: badgeColor }}>{badge}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!hasContent && (
+        <div className="px-4 py-4">
+          <p className="text-xs" style={{ color: 'rgba(241,245,249,0.3)' }}>No data for this team yet</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const router = useRouter()
 
-  const { activeTeamId } = useTeam()
+  const { activeTeamId, setActiveTeamId } = useTeam()
   const { data: teams = [] } = useTeams()
   const activeTeam = teams.find(t => t.id === activeTeamId) ?? null
 
@@ -170,43 +307,38 @@ export default function DashboardPage() {
   }, [plans])
 
   // Players needing attention (no eval / stale eval / grade D)
-  const attentionPlayers = useMemo(() => {
-    const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000
-    const now = Date.now()
+  const attentionPlayers = useMemo(() => computeAttentionPlayers(players, evals), [players, evals])
 
-    const latestEval = new Map<string, Evaluation>()
-    for (const e of evals) {
-      const cur = latestEval.get(e.player_id)
-      if (!cur || new Date(e.evaluated_at) > new Date(cur.evaluated_at)) {
-        latestEval.set(e.player_id, e)
+  // Per-team sections for All Teams view
+  const teamSections = useMemo((): TeamSection[] => {
+    if (activeTeamId || teams.length === 0) return []
+    const todayISO = new Date().toISOString().split('T')[0]
+    return teams.map(team => {
+      const teamPlayers = players.filter(p => p.team_id === team.id)
+      const teamGames   = games.filter(g => g.team_id === team.id)
+      const teamPlans   = plans.filter(p => p.team_id === team.id)
+      const teamEvals   = evals.filter(e => e.team_id === team.id)
+      const scored      = teamGames.filter(g => g.our_score !== null && g.opponent_score !== null)
+      const wins        = scored.filter(g => (g.our_score ?? 0) > (g.opponent_score ?? 0)).length
+      const losses      = scored.filter(g => (g.our_score ?? 0) < (g.opponent_score ?? 0)).length
+      const nextGame    = teamGames.find(g => {
+        const d = new Date(g.scheduled_at)
+        return d >= today || isSameDay(d, today)
+      }) ?? null
+      const nextPractice = teamPlans
+        .filter(p => p.scheduled_date && p.scheduled_date >= todayISO)
+        .sort((a, b) => a.scheduled_date!.localeCompare(b.scheduled_date!))[0] ?? null
+      return {
+        team,
+        players:          teamPlayers,
+        plans:            teamPlans,
+        nextGame,
+        nextPractice,
+        attentionPlayers: computeAttentionPlayers(teamPlayers, teamEvals),
+        record:           scored.length > 0 ? `${wins}-${losses}` : '—',
       }
-    }
-
-    const seen = new Set<string>()
-    const result: Array<{ player: Player; badge: string; badgeColor: string }> = []
-
-    for (const p of players) {
-      const ev = latestEval.get(p.id)
-      if (!ev) {
-        result.push({ player: p, badge: 'No eval yet', badgeColor: '#6B7280' })
-        seen.add(p.id)
-      } else if (now - new Date(ev.evaluated_at).getTime() > THIRTY_DAYS) {
-        const days = Math.floor((now - new Date(ev.evaluated_at).getTime()) / 86400000)
-        result.push({ player: p, badge: `${days}d ago`, badgeColor: '#F5B731' })
-        seen.add(p.id)
-      }
-    }
-
-    for (const p of players) {
-      if (seen.has(p.id)) continue
-      const ev = latestEval.get(p.id)
-      if (ev?.grade?.startsWith('D')) {
-        result.push({ player: p, badge: `${ev.grade} · ${ev.overall_avg?.toFixed(1)}`, badgeColor: '#EF4444' })
-      }
-    }
-
-    return result.slice(0, 3)
-  }, [players, evals])
+    })
+  }, [activeTeamId, teams, players, games, plans, evals, today])
 
   // Season stats
   const stats = useMemo(() => {
@@ -293,7 +425,58 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* ── Season Stats ── */}
+      {/* ── Team Tab Bar ── */}
+      {teams.length >= 1 && (
+        <div
+          className="flex items-center gap-2 mb-6 overflow-x-auto"
+          style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
+        >
+          {teams.length >= 2 && (
+            <button
+              onClick={() => setActiveTeamId(null)}
+              className="flex items-center px-3 py-2 rounded-xl text-sm font-semibold transition-all flex-shrink-0"
+              style={{
+                backgroundColor: !activeTeamId ? 'rgba(241,245,249,0.1)' : 'rgba(241,245,249,0.04)',
+                color: !activeTeamId ? 'rgba(241,245,249,0.85)' : 'rgba(241,245,249,0.4)',
+                border: !activeTeamId ? '1px solid rgba(241,245,249,0.2)' : '1px solid rgba(241,245,249,0.08)',
+              }}
+            >
+              All Teams
+            </button>
+          )}
+          {teams.map(team => (
+            <button
+              key={team.id}
+              onClick={() => setActiveTeamId(team.id)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all flex-shrink-0"
+              style={{
+                backgroundColor: activeTeamId === team.id ? `${team.color}18` : 'rgba(241,245,249,0.04)',
+                color: activeTeamId === team.id ? team.color : 'rgba(241,245,249,0.4)',
+                border: activeTeamId === team.id ? `1px solid ${team.color}40` : '1px solid rgba(241,245,249,0.08)',
+              }}
+            >
+              <span style={{ fontSize: 15 }}>{team.emoji}</span>
+              <span>{team.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── All Teams view ── */}
+      {!activeTeamId && teamSections.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          {teamSections.map(section => (
+            <TeamSummaryCard
+              key={section.team.id}
+              section={section}
+              onSwitch={() => setActiveTeamId(section.team.id)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* ── Season Stats + detail (single-team view) ── */}
+      {(activeTeamId || teamSections.length === 0) && (<>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {isLoading
           ? [1,2,3,4].map(i => (
@@ -627,6 +810,7 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+      </>)}
     </div>
   )
 }
