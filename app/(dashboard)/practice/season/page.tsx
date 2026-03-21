@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Barlow_Condensed } from 'next/font/google'
 import {
   useSeasonPlans,
+  useSeasonPracticeCounts,
   useCreateSeasonPlan,
   useUpdateSeasonPlan,
   useDeleteSeasonPlan,
@@ -158,8 +159,14 @@ function autoFillWeeks(
 
 function calcTotalWeeks(start: string, end: string): number {
   if (!start || !end) return 0
-  const ms = new Date(end).getTime() - new Date(start).getTime()
-  return Math.max(1, Math.ceil(ms / (7 * 24 * 60 * 60 * 1000)))
+  // Parse as local date (not UTC) to avoid DST-induced off-by-one on exact week multiples
+  const [sy, sm, sd] = start.split('-').map(Number)
+  const [ey, em, ed] = end.split('-').map(Number)
+  const days = Math.round(
+    (new Date(ey, em - 1, ed).getTime() - new Date(sy, sm - 1, sd).getTime()) /
+    (24 * 60 * 60 * 1000)
+  )
+  return Math.max(1, Math.ceil(days / 7))
 }
 
 function calcPracticeDate(startDate: string, weekNum: number, practiceInWeek: number, perWeek: number): string {
@@ -740,6 +747,19 @@ function Step4Characters({ sequence, totalWeeks, onChange, onNext, onBack }: {
   onBack: () => void
 }) {
   const dragIdx = useRef<number | null>(null)
+  const [customInput, setCustomInput] = useState('')
+
+  function addCustomTheme() {
+    const name = customInput.trim()
+    if (!name || sequence.includes(name)) return
+    onChange([...sequence, name])
+    setCustomInput('')
+  }
+
+  function removeTheme(idx: number) {
+    if (sequence.length <= 1) return
+    onChange(sequence.filter((_, i) => i !== idx))
+  }
 
   function moveTheme(from: number, to: number) {
     const next = [...sequence]
@@ -771,8 +791,7 @@ function Step4Characters({ sequence, totalWeeks, onChange, onNext, onBack }: {
 
       <div className="space-y-2">
         {sequence.map((themeName, idx) => {
-          const theme = CHARACTER_THEMES.find(t => t.name === themeName)
-          if (!theme) return null
+          const theme = CHARACTER_THEMES.find(t => t.name === themeName) ?? { name: themeName, icon: '★', description: 'Custom theme' }
           return (
             <div
               key={themeName}
@@ -811,10 +830,35 @@ function Step4Characters({ sequence, totalWeeks, onChange, onNext, onBack }: {
                   style={{ backgroundColor: 'rgba(241,245,249,0.06)', color: 'rgba(241,245,249,0.5)' }}
                 >▼</button>
               </div>
+              <button
+                onClick={() => removeTheme(idx)}
+                disabled={sequence.length <= 1}
+                className="text-xs hover:opacity-60 disabled:opacity-20 flex-shrink-0"
+                style={{ color: 'rgba(241,245,249,0.3)' }}
+              >✕</button>
               <span className="hidden sm:block text-xs flex-shrink-0" style={{ color: 'rgba(241,245,249,0.2)' }}>⠿</span>
             </div>
           )
         })}
+      </div>
+
+      {/* Add custom theme */}
+      <div className="flex gap-2">
+        <input
+          value={customInput}
+          onChange={e => setCustomInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && addCustomTheme()}
+          placeholder="Add a custom theme..."
+          className="sp-input flex-1 text-sm py-2"
+        />
+        <button
+          onClick={addCustomTheme}
+          disabled={!customInput.trim() || sequence.includes(customInput.trim())}
+          className="px-4 py-2 text-sm font-semibold rounded-xl transition-opacity hover:opacity-85 disabled:opacity-30"
+          style={{ backgroundColor: 'rgba(247,98,10,0.15)', color: '#F7620A', border: '1px solid rgba(247,98,10,0.3)' }}
+        >
+          Add
+        </button>
       </div>
 
       <div className="flex justify-between pt-2">
@@ -935,14 +979,14 @@ function Step5Review({ setup, phases, weeks, themes, onSaveDraft, onGenerate, on
         <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: 'rgba(241,245,249,0.3)' }}>Character Theme Timeline</p>
         <div className="flex flex-wrap gap-1.5">
           {themes.map((t, i) => {
-            const theme = CHARACTER_THEMES.find(th => th.name === t)
+            const theme = CHARACTER_THEMES.find(th => th.name === t) ?? { icon: '★' }
             const weeksPerTheme = Math.max(1, Math.ceil(totalWeeks / themes.length))
             const start = i * weeksPerTheme + 1
             const end   = Math.min(totalWeeks, (i + 1) * weeksPerTheme)
             return (
               <div key={t} className="flex flex-col items-center gap-0.5">
                 <span className="text-xs px-2 py-0.5 rounded font-medium" style={{ backgroundColor: 'rgba(247,98,10,0.1)', color: '#F7620A' }}>
-                  {theme?.icon} {t}
+                  {theme.icon} {t}
                 </span>
                 <span style={{ fontSize: 10, color: 'rgba(241,245,249,0.3)' }}>
                   {start === end ? `Wk ${start}` : `${start}–${end}`}
@@ -983,9 +1027,9 @@ function Step5Review({ setup, phases, weeks, themes, onSaveDraft, onGenerate, on
 
 // ── Season Plan List ──────────────────────────────────────────────────────────
 
-function SeasonPlanCard({ plan, onDelete, onEdit }: { plan: SeasonPlan; onDelete: () => void; onEdit: () => void }) {
+function SeasonPlanCard({ plan, practiceCount, onDelete, onEdit }: { plan: SeasonPlan; practiceCount: number | undefined; onDelete: () => void; onEdit: () => void }) {
   const [confirmDel, setConfirmDel] = useState(false)
-  const totalPractices = plan.total_weeks * plan.practices_per_week
+  const totalPractices = practiceCount ?? plan.total_weeks * plan.practices_per_week
 
   return (
     <div className="rounded-xl p-5" style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.07)' }}>
@@ -1004,7 +1048,7 @@ function SeasonPlanCard({ plan, onDelete, onEdit }: { plan: SeasonPlan; onDelete
           </div>
           <h3 className={`text-xl text-sp-text ${barlow.className}`}>{plan.name}</h3>
           <p className="text-xs mt-0.5" style={{ color: 'rgba(241,245,249,0.4)' }}>
-            {plan.total_weeks} weeks · {totalPractices} practices · {plan.age_group ?? '—'} · {plan.practice_duration_mins} min
+            {plan.total_weeks} weeks · {totalPractices} practice{totalPractices !== 1 ? 's' : ''}{practiceCount === undefined ? ' (est.)' : ''} · {plan.age_group ?? '—'} · {plan.practice_duration_mins} min
           </p>
         </div>
         {confirmDel ? (
@@ -1066,6 +1110,7 @@ function SeasonPlanCard({ plan, onDelete, onEdit }: { plan: SeasonPlan; onDelete
 
 export default function SeasonPlanPage() {
   const { data: seasonPlans = [], isLoading: plansLoading } = useSeasonPlans()
+  const { data: practiceCounts = {} } = useSeasonPracticeCounts()
   const { data: evaluations = [] } = useEvaluations()
   const { mutateAsync: createSeasonPlan } = useCreateSeasonPlan()
   const { mutateAsync: updateSeasonPlan } = useUpdateSeasonPlan()
@@ -1287,7 +1332,7 @@ export default function SeasonPlanPage() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {seasonPlans.map(plan => (
-              <SeasonPlanCard key={plan.id} plan={plan} onDelete={() => deleteSeasonPlan(plan.id)} onEdit={() => startEdit(plan)} />
+              <SeasonPlanCard key={plan.id} plan={plan} practiceCount={practiceCounts[plan.id]} onDelete={() => deleteSeasonPlan(plan.id)} onEdit={() => startEdit(plan)} />
             ))}
           </div>
         )}

@@ -112,6 +112,24 @@ export function useUpdateSeasonPlan() {
   })
 }
 
+export function useSeasonPracticeCounts() {
+  return useQuery({
+    queryKey: ['season_practice_counts'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('practice_plans')
+        .select('season_plan_id')
+        .not('season_plan_id', 'is', null)
+      if (error) throw error
+      const counts: Record<string, number> = {}
+      for (const row of data ?? []) {
+        if (row.season_plan_id) counts[row.season_plan_id] = (counts[row.season_plan_id] ?? 0) + 1
+      }
+      return counts
+    },
+  })
+}
+
 export function useDeleteSeasonPlan() {
   const qc = useQueryClient()
   return useMutation({
