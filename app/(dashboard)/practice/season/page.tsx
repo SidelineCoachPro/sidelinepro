@@ -6,12 +6,14 @@ import { Barlow_Condensed } from 'next/font/google'
 import {
   useSeasonPlans,
   useCreateSeasonPlan,
+  useUpdateSeasonPlan,
   useDeleteSeasonPlan,
   type SeasonPlan,
   type SeasonPhase,
   type WeeklyFocus,
 } from '@/hooks/useSeasonPlans'
 import { useCreatePracticePlan } from '@/hooks/usePracticePlans'
+import { createClient } from '@/lib/supabase/client'
 import { drills as staticDrills } from '@/data/drills'
 import { useEvaluations } from '@/hooks/useEvaluations'
 
@@ -592,7 +594,12 @@ function Step2Phases({ phases, totalWeeks, onChange, onNext, onBack }: {
 
       <div className="flex justify-between pt-2">
         <button onClick={onBack} className="px-5 py-2 text-sm font-medium" style={{ color: 'rgba(241,245,249,0.4)' }}>← Back</button>
-        <button onClick={onNext} className="px-6 py-2.5 text-sm font-semibold rounded-xl transition-opacity hover:opacity-85" style={{ backgroundColor: '#F7620A', color: '#fff' }}>
+        <button
+          onClick={onNext}
+          disabled={totalAssigned !== totalWeeks}
+          className="px-6 py-2.5 text-sm font-semibold rounded-xl transition-opacity hover:opacity-85 disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{ backgroundColor: '#F7620A', color: '#fff' }}
+        >
           Next: Weekly Arc →
         </button>
       </div>
@@ -778,7 +785,7 @@ function Step4Characters({ sequence, totalWeeks, onChange, onNext, onBack }: {
                 }
                 dragIdx.current = null
               }}
-              className="flex items-center gap-4 px-4 py-3 rounded-xl cursor-grab active:cursor-grabbing transition-colors hover:border-opacity-20"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-grab active:cursor-grabbing transition-colors hover:border-opacity-20"
               style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.07)' }}
             >
               <span style={{ fontSize: 20, flexShrink: 0 }}>{theme.icon}</span>
@@ -789,7 +796,22 @@ function Step4Characters({ sequence, totalWeeks, onChange, onNext, onBack }: {
               <span className="text-xs font-medium flex-shrink-0 px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(247,98,10,0.1)', color: '#F7620A' }}>
                 {getWeeksForTheme(idx)}
               </span>
-              <span className="text-xs flex-shrink-0" style={{ color: 'rgba(241,245,249,0.2)' }}>⠿</span>
+              {/* Up/down buttons — visible on touch, hidden on desktop where drag works */}
+              <div className="flex flex-col gap-0.5 sm:hidden flex-shrink-0">
+                <button
+                  disabled={idx === 0}
+                  onClick={() => moveTheme(idx, idx - 1)}
+                  className="w-6 h-5 rounded text-xs leading-none disabled:opacity-20"
+                  style={{ backgroundColor: 'rgba(241,245,249,0.06)', color: 'rgba(241,245,249,0.5)' }}
+                >▲</button>
+                <button
+                  disabled={idx === sequence.length - 1}
+                  onClick={() => moveTheme(idx, idx + 1)}
+                  className="w-6 h-5 rounded text-xs leading-none disabled:opacity-20"
+                  style={{ backgroundColor: 'rgba(241,245,249,0.06)', color: 'rgba(241,245,249,0.5)' }}
+                >▼</button>
+              </div>
+              <span className="hidden sm:block text-xs flex-shrink-0" style={{ color: 'rgba(241,245,249,0.2)' }}>⠿</span>
             </div>
           )
         })}
@@ -961,7 +983,7 @@ function Step5Review({ setup, phases, weeks, themes, onSaveDraft, onGenerate, on
 
 // ── Season Plan List ──────────────────────────────────────────────────────────
 
-function SeasonPlanCard({ plan, onDelete }: { plan: SeasonPlan; onDelete: () => void }) {
+function SeasonPlanCard({ plan, onDelete, onEdit }: { plan: SeasonPlan; onDelete: () => void; onEdit: () => void }) {
   const [confirmDel, setConfirmDel] = useState(false)
   const totalPractices = plan.total_weeks * plan.practices_per_week
 
@@ -1014,6 +1036,13 @@ function SeasonPlanCard({ plan, onDelete }: { plan: SeasonPlan; onDelete: () => 
       )}
 
       <div className="flex gap-2">
+        <button
+          onClick={onEdit}
+          className="py-2 px-3 text-xs font-bold rounded-lg transition-opacity hover:opacity-80"
+          style={{ backgroundColor: 'rgba(241,245,249,0.06)', color: 'rgba(241,245,249,0.6)', border: '1px solid rgba(241,245,249,0.1)' }}
+        >
+          Edit
+        </button>
         <Link
           href={`/practice/planner`}
           className="flex-1 py-2 text-center text-xs font-bold rounded-lg transition-opacity hover:opacity-80"
@@ -1026,7 +1055,7 @@ function SeasonPlanCard({ plan, onDelete }: { plan: SeasonPlan; onDelete: () => 
           className="flex-1 py-2 text-center text-xs font-bold rounded-lg transition-opacity hover:opacity-80"
           style={{ backgroundColor: 'rgba(247,98,10,0.1)', color: '#F7620A', border: '1px solid rgba(247,98,10,0.2)' }}
         >
-          View on Calendar
+          Calendar
         </Link>
       </div>
     </div>
@@ -1039,10 +1068,12 @@ export default function SeasonPlanPage() {
   const { data: seasonPlans = [], isLoading: plansLoading } = useSeasonPlans()
   const { data: evaluations = [] } = useEvaluations()
   const { mutateAsync: createSeasonPlan } = useCreateSeasonPlan()
+  const { mutateAsync: updateSeasonPlan } = useUpdateSeasonPlan()
   const { mutateAsync: createPracticePlan } = useCreatePracticePlan()
   const { mutate: deleteSeasonPlan, mutateAsync: deleteSeasonPlanAsync } = useDeleteSeasonPlan()
 
   const [mode, setMode] = useState<'list' | 'wizard'>('list')
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null)
   const [step, setStep] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
   const [progress, setProgress] = useState<number | null>(null)
@@ -1061,6 +1092,35 @@ export default function SeasonPlanPage() {
   const [phases, setPhases] = useState<SeasonPhase[]>([])
   const [weeklyArc, setWeeklyArc] = useState<WeeklyFocus[]>([])
   const [themeSequence, setThemeSequence] = useState<string[]>(RECOMMENDED_THEMES)
+
+  function startEdit(plan: SeasonPlan) {
+    setEditingPlanId(plan.id)
+    setSetup({
+      name: plan.name,
+      seasonType: plan.season_type,
+      startDate: plan.start_date,
+      endDate: plan.end_date,
+      practicesPerWeek: plan.practices_per_week,
+      practiceDuration: plan.practice_duration_mins,
+      ageGroup: plan.age_group ?? 'U12',
+      skillLevel: plan.skill_level,
+    })
+    setPhases(plan.phases)
+    setWeeklyArc(plan.weekly_focus_rotation)
+    setThemeSequence(plan.character_theme_sequence.length > 0 ? plan.character_theme_sequence : RECOMMENDED_THEMES)
+    setStep(0)
+    setMode('wizard')
+  }
+
+  function startNew() {
+    setEditingPlanId(null)
+    setSetup({ name: '', seasonType: 'rec', startDate: '', endDate: '', practicesPerWeek: 2, practiceDuration: 75, ageGroup: 'U12', skillLevel: 'Mixed' })
+    setPhases([])
+    setWeeklyArc([])
+    setThemeSequence(RECOMMENDED_THEMES)
+    setStep(0)
+    setMode('wizard')
+  }
 
   // Team weaknesses from eval data
   const teamWeaknesses = useMemo(() => {
@@ -1097,30 +1157,37 @@ export default function SeasonPlanPage() {
 
   function goToStep(n: number) {
     if (n === 1 && step === 0) initPhases()
-    if (n === 2 && step === 1) initWeeklyArc()
+    // Only auto-fill arc when it's empty or phases changed total_weeks (wrong length).
+    // Preserves manual edits when user goes back to adjust phases without changing duration.
+    if (n === 2 && step === 1 && weeklyArc.length !== totalWeeks) initWeeklyArc()
     setStep(n)
   }
+
+  const seasonPayload = () => ({
+    name: setup.name,
+    season_type: setup.seasonType,
+    start_date: setup.startDate,
+    end_date: setup.endDate,
+    practices_per_week: setup.practicesPerWeek,
+    practice_duration_mins: setup.practiceDuration,
+    age_group: setup.ageGroup,
+    skill_level: setup.skillLevel,
+    phases,
+    weekly_focus_rotation: weeklyArc,
+    character_theme_sequence: themeSequence,
+    use_player_evals: teamWeaknesses.length > 0,
+    team_weaknesses: teamWeaknesses.length > 0 ? teamWeaknesses : null,
+  })
 
   async function handleSaveDraft() {
     setIsSaving(true)
     setError('')
     try {
-      await createSeasonPlan({
-        name: setup.name,
-        season_type: setup.seasonType,
-        start_date: setup.startDate,
-        end_date: setup.endDate,
-        practices_per_week: setup.practicesPerWeek,
-        practice_duration_mins: setup.practiceDuration,
-        age_group: setup.ageGroup,
-        skill_level: setup.skillLevel,
-        phases,
-        weekly_focus_rotation: weeklyArc,
-        character_theme_sequence: themeSequence,
-        use_player_evals: teamWeaknesses.length > 0,
-        team_weaknesses: teamWeaknesses.length > 0 ? teamWeaknesses : null,
-        status: 'draft',
-      })
+      if (editingPlanId) {
+        await updateSeasonPlan({ id: editingPlanId, ...seasonPayload(), status: 'draft' })
+      } else {
+        await createSeasonPlan({ ...seasonPayload(), status: 'draft' })
+      }
       setMode('list')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save')
@@ -1134,23 +1201,16 @@ export default function SeasonPlanPage() {
     setError('')
     setProgress(0)
     try {
-      // 1. Create the season plan
-      const seasonPlan = await createSeasonPlan({
-        name: setup.name,
-        season_type: setup.seasonType,
-        start_date: setup.startDate,
-        end_date: setup.endDate,
-        practices_per_week: setup.practicesPerWeek,
-        practice_duration_mins: setup.practiceDuration,
-        age_group: setup.ageGroup,
-        skill_level: setup.skillLevel,
-        phases,
-        weekly_focus_rotation: weeklyArc,
-        character_theme_sequence: themeSequence,
-        use_player_evals: teamWeaknesses.length > 0,
-        team_weaknesses: teamWeaknesses.length > 0 ? teamWeaknesses : null,
-        status: 'active',
-      })
+      // 1. Create or update the season plan
+      let seasonPlan
+      if (editingPlanId) {
+        // Delete old generated practices before regenerating
+        const supabase = createClient()
+        await supabase.from('practice_plans').delete().eq('season_plan_id', editingPlanId)
+        seasonPlan = await updateSeasonPlan({ id: editingPlanId, ...seasonPayload(), status: 'active' })
+      } else {
+        seasonPlan = await createSeasonPlan({ ...seasonPayload(), status: 'active' })
+      }
 
       // 2. Generate practice plans for each week × practice
       let count = 0
@@ -1204,7 +1264,7 @@ export default function SeasonPlanPage() {
             </p>
           </div>
           <button
-            onClick={() => { setStep(0); setMode('wizard') }}
+            onClick={startNew}
             className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg transition-opacity hover:opacity-85"
             style={{ backgroundColor: '#F7620A', color: '#fff' }}
           >
@@ -1220,14 +1280,14 @@ export default function SeasonPlanPage() {
             <p className="text-sm mb-5" style={{ color: 'rgba(241,245,249,0.4)' }}>
               Build a connected curriculum where every practice builds on the last.
             </p>
-            <button onClick={() => { setStep(0); setMode('wizard') }} className="px-5 py-2 text-sm font-semibold rounded-xl transition-opacity hover:opacity-85" style={{ backgroundColor: '#F7620A', color: '#fff' }}>
+            <button onClick={startNew} className="px-5 py-2 text-sm font-semibold rounded-xl transition-opacity hover:opacity-85" style={{ backgroundColor: '#F7620A', color: '#fff' }}>
               Start Season Plan
             </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {seasonPlans.map(plan => (
-              <SeasonPlanCard key={plan.id} plan={plan} onDelete={() => deleteSeasonPlan(plan.id)} />
+              <SeasonPlanCard key={plan.id} plan={plan} onDelete={() => deleteSeasonPlan(plan.id)} onEdit={() => startEdit(plan)} />
             ))}
           </div>
         )}
@@ -1242,7 +1302,7 @@ export default function SeasonPlanPage() {
     <div>
       <div className="flex items-center gap-3 mb-6">
         <button onClick={() => setMode('list')} className="text-sm transition-opacity hover:opacity-60" style={{ color: 'rgba(241,245,249,0.4)' }}>← Back</button>
-        <h1 className="text-2xl font-bold text-sp-text">{stepTitles[step]}</h1>
+        <h1 className="text-2xl font-bold text-sp-text">{editingPlanId ? 'Edit: ' : ''}{stepTitles[step]}</h1>
       </div>
 
       <StepIndicator current={step} />
