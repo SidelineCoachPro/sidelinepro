@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { PDFDownloadLink } from '@react-pdf/renderer'
 import DevPlanPDF from './DevPlanPDF'
 import type { DevPlan } from '@/hooks/useDevPlans'
@@ -23,8 +24,17 @@ export default function DevPlanButton({
   className?:  string
   style?:      React.CSSProperties
 }) {
+  const [requested, setRequested] = useState(false)
   const playerName = `${player.first_name}_${player.last_name ?? ''}`.replace(/[^a-z0-9_]/gi, '')
   const fileName = `${playerName}_dev_plan.pdf`
+
+  if (!requested) {
+    return (
+      <button className={className} style={style} onClick={() => setRequested(true)}>
+        ↓ PDF
+      </button>
+    )
+  }
 
   return (
     <PDFDownloadLink
@@ -35,7 +45,7 @@ export default function DevPlanButton({
     >
       {({ loading, error }) => {
         if (error) { console.error('DevPlanPDF error:', error); return '⚠ PDF Error' }
-        return loading ? 'Preparing...' : '↓ PDF'
+        return loading ? 'Preparing...' : '↓ Download'
       }}
     </PDFDownloadLink>
   )

@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { PDFDownloadLink } from '@react-pdf/renderer'
 import PracticePlanPDF from './PracticePlanPDF'
 import type { PracticePlan } from '@/hooks/usePracticePlans'
@@ -15,7 +16,16 @@ export default function PracticePlanButton({
   className?: string
   style?:     React.CSSProperties
 }) {
+  const [requested, setRequested] = useState(false)
   const fileName = `${plan.name.replace(/[^a-z0-9]/gi, '_')}_practice_plan.pdf`
+
+  if (!requested) {
+    return (
+      <button className={className} style={style} onClick={() => setRequested(true)}>
+        ↓ PDF
+      </button>
+    )
+  }
 
   return (
     <PDFDownloadLink
@@ -26,7 +36,7 @@ export default function PracticePlanButton({
     >
       {({ loading, error }) => {
         if (error) { console.error('PracticePlanPDF error:', error); return '⚠ PDF Error' }
-        return loading ? 'Preparing...' : '↓ PDF'
+        return loading ? 'Preparing...' : '↓ Download'
       }}
     </PDFDownloadLink>
   )
