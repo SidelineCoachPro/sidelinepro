@@ -520,14 +520,17 @@ export default function PlannerPage() {
   const [saveError, setSaveError] = useState('')
   const [hasQueuedGame, setHasQueuedGame] = useState(false)
   const [addedGameName, setAddedGameName] = useState('')
+  const [hasQueuedPlay, setHasQueuedPlay] = useState(false)
+  const [addedPlayName, setAddedPlayName] = useState('')
 
   const { data: customDrillRows = [] } = useCustomDrills()
   const { mutateAsync: createPlan, isPending: isCreating } = useCreatePracticePlan()
   const { mutateAsync: updatePlan, isPending: isUpdating } = useUpdatePracticePlan()
 
-  // Check for queued game from games library
+  // Check for queued items from libraries
   useEffect(() => {
     setHasQueuedGame(!!localStorage.getItem('sp_queued_game'))
+    setHasQueuedPlay(!!localStorage.getItem('sp_queued_play'))
   }, [])
 
   // Auto-add queued game when entering building phase
@@ -544,6 +547,24 @@ export default function PlannerPage() {
       setTimeout(() => setAddedGameName(''), 3000)
     } catch {
       localStorage.removeItem('sp_queued_game')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase])
+
+  // Auto-add queued play when entering building phase
+  useEffect(() => {
+    if (phase !== 'building') return
+    const raw = localStorage.getItem('sp_queued_play')
+    if (!raw) return
+    try {
+      const item = JSON.parse(raw) as PlanDrill
+      setPlanDrills(prev => prev.some(d => d.uid === item.uid) ? prev : [...prev, item])
+      setAddedPlayName(item.name)
+      localStorage.removeItem('sp_queued_play')
+      setHasQueuedPlay(false)
+      setTimeout(() => setAddedPlayName(''), 3000)
+    } catch {
+      localStorage.removeItem('sp_queued_play')
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase])
@@ -634,7 +655,7 @@ export default function PlannerPage() {
         <PracticeSubNav />
         {hasQueuedGame && (
           <div
-            className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl mb-5"
+            className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl mb-3"
             style={{ backgroundColor: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)' }}
           >
             <p className="text-sm font-medium" style={{ color: '#22C55E' }}>
@@ -644,6 +665,23 @@ export default function PlannerPage() {
               onClick={() => { localStorage.removeItem('sp_queued_game'); setHasQueuedGame(false) }}
               className="text-xs transition-opacity hover:opacity-60 flex-shrink-0"
               style={{ color: 'rgba(34,197,94,0.6)' }}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+        {hasQueuedPlay && (
+          <div
+            className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl mb-5"
+            style={{ backgroundColor: 'rgba(58,134,255,0.1)', border: '1px solid rgba(58,134,255,0.25)' }}
+          >
+            <p className="text-sm font-medium" style={{ color: '#3A86FF' }}>
+              🏀 A play is queued — open or create a plan to add it.
+            </p>
+            <button
+              onClick={() => { localStorage.removeItem('sp_queued_play'); setHasQueuedPlay(false) }}
+              className="text-xs transition-opacity hover:opacity-60 flex-shrink-0"
+              style={{ color: 'rgba(58,134,255,0.6)' }}
             >
               Dismiss
             </button>
@@ -695,6 +733,14 @@ export default function PlannerPage() {
           style={{ backgroundColor: 'rgba(34,197,94,0.1)', color: '#22C55E', border: '1px solid rgba(34,197,94,0.2)' }}
         >
           🎮 &ldquo;{addedGameName}&rdquo; added to plan
+        </div>
+      )}
+      {addedPlayName && (
+        <div
+          className="mb-4 px-4 py-2.5 rounded-xl text-sm font-medium"
+          style={{ backgroundColor: 'rgba(58,134,255,0.1)', color: '#3A86FF', border: '1px solid rgba(58,134,255,0.2)' }}
+        >
+          🏀 &ldquo;{addedPlayName}&rdquo; added to plan
         </div>
       )}
 

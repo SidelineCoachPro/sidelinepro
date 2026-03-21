@@ -7,6 +7,7 @@ const TABS = [
   { href: '/practice/planner', label: 'Plans' },
   { href: '/practice/drills',  label: 'Drill Library' },
   { href: '/practice/games',   label: 'Practice Games' },
+  { href: '/practice/plays',   label: 'Plays' },
   { href: '/practice/season',  label: 'Season Plan' },
 ]
 

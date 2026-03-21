@@ -87,7 +87,10 @@ function SortableItem({
           <div className="min-w-0">
             <p className="text-sm font-semibold text-sp-text truncate flex items-center gap-1.5">
                   {item.drillId?.startsWith('game-') && (
-                    <span className="flex-shrink-0 text-xs" title="Practice Game">🎮</span>
+                    <span className="flex-shrink-0 text-xs px-1.5 py-0.5 rounded font-bold" style={{ backgroundColor: 'rgba(14,207,176,0.15)', color: '#0ECFB0' }}>🎮 GAME</span>
+                  )}
+                  {item.drillId?.startsWith('play-') && (
+                    <span className="flex-shrink-0 text-xs px-1.5 py-0.5 rounded font-bold" style={{ backgroundColor: 'rgba(58,134,255,0.15)', color: '#3A86FF' }}>🏀 PLAY</span>
                   )}
                   {item.name}
                 </p>

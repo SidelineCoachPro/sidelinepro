@@ -6,6 +6,8 @@ import { usePracticePlan } from '@/hooks/usePracticePlans'
 import { drills as staticDrills } from '@/data/drills'
 import { useCustomDrills } from '@/hooks/useCustomDrills'
 import { practiceGames } from '@/data/practiceGames'
+import { PLAYS, PLAY_CATEGORY_LABELS } from '@/data/plays'
+import PlayDiagram from '@/components/plays/PlayDiagram'
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function formatTime(secs: number) {
@@ -81,12 +83,18 @@ function RunInner() {
   }, [customDrillRows])
 
   const isGame = current?.drillId.startsWith('game-') ?? false
+  const isPlay = current?.drillId.startsWith('play-') ?? false
   const gameData = isGame
     ? practiceGames.find(g => g.id === current!.drillId.replace('game-', ''))
     : null
-  const drillData = (!isGame && current) ? allDrillsMap().get(current.drillId) : null
-  const cues: string[] = gameData?.coachingTips ?? drillData?.cues ?? []
+  const playData = isPlay
+    ? PLAYS.find(p => p.id === current!.drillId.replace('play-', ''))
+    : null
+  const drillData = (!isGame && !isPlay && current) ? allDrillsMap().get(current.drillId) : null
+  const cues: string[] = gameData?.coachingTips ?? playData?.teachingKeys ?? drillData?.cues ?? []
   const categoryColor = current?.categoryColor ?? getCategoryColor(current?.category ?? '')
+
+  const [activeStep, setActiveStep] = useState<number | null>(null)
 
   function goNext() {
     if (currentIndex < drills.length - 1) {
@@ -232,7 +240,9 @@ function RunInner() {
               className="text-xs font-semibold uppercase tracking-wide mb-2"
               style={{ color: categoryColor }}
             >
-              {current.category}
+              {isPlay && playData
+                ? `🏀 PLAY · ${PLAY_CATEGORY_LABELS[playData.category]}`
+                : isGame ? '🎮 PRACTICE GAME' : current.category}
             </p>
           )}
 
@@ -244,6 +254,60 @@ function RunInner() {
             <p className="text-sm mb-4" style={{ color: 'rgba(241,245,249,0.5)' }}>
               {current.notes}
             </p>
+          )}
+
+          {/* Play Teaching Mode */}
+          {playData && (
+            <div className="mb-4">
+              {/* Diagram */}
+              <div className="flex justify-center mb-4">
+                <PlayDiagram
+                  agents={playData.agents}
+                  ballStartX={playData.ballStartX}
+                  ballStartY={playData.ballStartY}
+                  ballEndX={playData.ballEndX}
+                  ballEndY={playData.ballEndY}
+                  width={360}
+                  height={230}
+                />
+              </div>
+
+              {/* Step-by-step */}
+              <div
+                className="rounded-xl px-4 py-3 mb-3"
+                style={{ backgroundColor: 'rgba(241,245,249,0.03)', border: '1px solid rgba(241,245,249,0.07)' }}
+              >
+                <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'rgba(241,245,249,0.35)' }}>
+                  Step-by-Step
+                </p>
+                <div className="space-y-1.5">
+                  {playData.steps.map(s => (
+                    <button
+                      key={s.step}
+                      onClick={() => setActiveStep(activeStep === s.step ? null : s.step)}
+                      className="w-full text-left flex items-start gap-2.5 px-3 py-2 rounded-lg transition-all"
+                      style={{
+                        backgroundColor: activeStep === s.step ? `${categoryColor}18` : 'transparent',
+                        border: `1px solid ${activeStep === s.step ? `${categoryColor}40` : 'transparent'}`,
+                      }}
+                    >
+                      <span
+                        className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold mt-0.5"
+                        style={{
+                          backgroundColor: activeStep === s.step ? categoryColor : 'rgba(241,245,249,0.12)',
+                          color: activeStep === s.step ? '#fff' : 'rgba(241,245,249,0.5)',
+                        }}
+                      >
+                        {s.step}
+                      </span>
+                      <span className="text-sm flex-1" style={{ color: activeStep === s.step ? '#F1F5F9' : 'rgba(241,245,249,0.65)' }}>
+                        {s.description}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           )}
 
           {/* Game info */}

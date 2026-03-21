@@ -29,6 +29,13 @@ const sections = [
     color: '#EF4444',
     icon: '🎮',
   },
+  {
+    href: '/practice/plays',
+    title: 'Play Library',
+    description: '17 plays — offensive sets, defensive schemes, and special situations. Teach with X\'s and O\'s diagrams.',
+    color: '#3A86FF',
+    icon: '🏀',
+  },
 ]
 
 export default function PracticePage() {
