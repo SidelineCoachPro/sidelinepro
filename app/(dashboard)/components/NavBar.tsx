@@ -10,9 +10,10 @@ const barlow = Barlow_Condensed({ subsets: ['latin'], weight: '900' })
 
 const navLinks = [
   { href: '/practice', label: 'Practice' },
-  { href: '/players', label: 'Players' },
-  { href: '/game', label: 'Game Day' },
-  { href: '/comms', label: 'Communications' },
+  { href: '/players',  label: 'Players' },
+  { href: '/calendar', label: 'Calendar' },
+  { href: '/game',     label: 'Game Day' },
+  { href: '/comms',    label: 'Communications' },
 ]
 
 export default function NavBar({ email }: { email: string }) {

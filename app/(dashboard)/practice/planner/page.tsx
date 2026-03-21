@@ -10,6 +10,7 @@ import {
   useCreatePracticePlan,
   useUpdatePracticePlan,
   useDeletePracticePlan,
+  useSchedulePractice,
   type PlanDrill,
   type PracticePlan,
 } from '@/hooks/usePracticePlans'
@@ -47,6 +48,58 @@ interface PracticeSettings {
 }
 
 // ── Saved Plans List ──────────────────────────────────────────────────────────
+function ScheduleInline({ plan, onDone }: { plan: PracticePlan; onDone: () => void }) {
+  const { mutateAsync: schedulePractice, isPending } = useSchedulePractice()
+  const [date, setDate] = useState(plan.scheduled_date ?? new Date().toISOString().split('T')[0])
+  const [time, setTime] = useState(plan.scheduled_time ? plan.scheduled_time.slice(0, 5) : '')
+  const [done, setDone] = useState(false)
+  const router = useRouter()
+
+  async function handleSchedule() {
+    await schedulePractice({ id: plan.id, scheduled_date: date, scheduled_time: time || null })
+    setDone(true)
+    setTimeout(onDone, 2000)
+  }
+
+  if (done) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium" style={{ backgroundColor: 'rgba(14,207,176,0.1)', color: '#0ECFB0' }}>
+        <span>✓ Scheduled for {new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+        <button onClick={() => router.push('/calendar')} className="underline opacity-70 hover:opacity-100">View on calendar →</button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-2 p-2 rounded-xl" style={{ backgroundColor: 'rgba(14,207,176,0.06)', border: '1px solid rgba(14,207,176,0.2)' }}>
+      <input
+        type="date"
+        value={date}
+        onChange={e => setDate(e.target.value)}
+        className="sp-input py-1 text-xs"
+        style={{ colorScheme: 'dark', flex: '0 0 auto', width: 'auto' }}
+      />
+      <input
+        type="time"
+        value={time}
+        onChange={e => setTime(e.target.value)}
+        className="sp-input py-1 text-xs"
+        placeholder="Time (opt)"
+        style={{ colorScheme: 'dark', flex: '0 0 auto', width: 'auto' }}
+      />
+      <button
+        onClick={handleSchedule}
+        disabled={isPending}
+        className="flex-shrink-0 px-3 py-1 text-xs font-semibold rounded-lg disabled:opacity-50 transition-opacity hover:opacity-85"
+        style={{ backgroundColor: '#0ECFB0', color: '#0E1520' }}
+      >
+        {isPending ? '...' : 'Schedule →'}
+      </button>
+      <button onClick={onDone} className="text-xs" style={{ color: 'rgba(241,245,249,0.3)' }}>✕</button>
+    </div>
+  )
+}
+
 function SavedPlansList({
   onNew,
   onOpen,
@@ -60,6 +113,7 @@ function SavedPlansList({
   const { mutate: deletePlan } = useDeletePracticePlan()
   const coachName = useCoachName()
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [schedulingId, setSchedulingId] = useState<string | null>(null)
 
   function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -110,8 +164,8 @@ function SavedPlansList({
             const isDeleting = confirmDelete === plan.id
 
             return (
+              <div key={plan.id}>
               <div
-                key={plan.id}
                 className="flex items-center gap-4 px-5 py-4 rounded-xl"
                 style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.07)' }}
               >
@@ -193,6 +247,17 @@ function SavedPlansList({
                         }}
                       />
                       <button
+                        onClick={() => setSchedulingId(schedulingId === plan.id ? null : plan.id)}
+                        className="text-xs px-3 py-1.5 rounded-lg font-medium transition-opacity hover:opacity-85"
+                        style={{
+                          backgroundColor: plan.scheduled_date ? 'rgba(14,207,176,0.12)' : 'rgba(241,245,249,0.06)',
+                          color: plan.scheduled_date ? '#0ECFB0' : 'rgba(241,245,249,0.6)',
+                          border: `1px solid ${plan.scheduled_date ? 'rgba(14,207,176,0.25)' : 'rgba(241,245,249,0.08)'}`,
+                        }}
+                      >
+                        {plan.scheduled_date ? '📅 Scheduled' : 'Schedule'}
+                      </button>
+                      <button
                         onClick={() => onOpen(plan)}
                         className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors"
                         style={{
@@ -213,6 +278,13 @@ function SavedPlansList({
                     </>
                   )}
                 </div>
+              </div>
+              {/* Inline schedule picker */}
+              {schedulingId === plan.id && (
+                <div className="mt-2 px-1 pb-1">
+                  <ScheduleInline plan={plan} onDone={() => setSchedulingId(null)} />
+                </div>
+              )}
               </div>
             )
           })}

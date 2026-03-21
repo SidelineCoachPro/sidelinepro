@@ -155,6 +155,14 @@ export default function DashboardPage() {
     [...plans].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0] ?? null
   , [plans])
 
+  const nextPractice = useMemo(() => {
+    const todayISO = new Date().toISOString().split('T')[0]
+    return plans
+      .filter(p => p.scheduled_date && p.scheduled_date >= todayISO)
+      .sort((a, b) => a.scheduled_date!.localeCompare(b.scheduled_date!))
+      [0] ?? null
+  }, [plans])
+
   // Players needing attention (no eval / stale eval / grade D)
   const attentionPlayers = useMemo(() => {
     const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000
@@ -389,6 +397,46 @@ export default function DashboardPage() {
                 <>
                   <p className="text-sm mb-2" style={{ color: 'rgba(241,245,249,0.4)' }}>No games scheduled yet</p>
                   <Link href="/game" className="text-sm font-semibold" style={{ color: '#F7620A' }}>+ Add Game →</Link>
+                </>
+              )}
+            </AccentCard>
+
+            {/* Next Practice */}
+            <AccentCard accent="#0ECFB0">
+              <SectionLabel>Next Practice</SectionLabel>
+              {lPlans ? (
+                <div className="space-y-2"><Skeleton className="h-5 w-1/2" /><Skeleton className="h-4 w-1/3" /></div>
+              ) : nextPractice ? (
+                <>
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <p className="text-base font-bold text-sp-text">{nextPractice.name}</p>
+                    {(() => {
+                      const d = daysUntil(nextPractice.scheduled_date! + 'T12:00:00')
+                      return (
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-lg flex-shrink-0" style={{ backgroundColor: 'rgba(14,207,176,0.1)', color: '#0ECFB0', border: '1px solid rgba(14,207,176,0.2)' }}>
+                          {d === 0 ? 'Today' : d === 1 ? 'Tomorrow' : `${d} days`}
+                        </span>
+                      )
+                    })()}
+                  </div>
+                  <p className="text-xs mb-2" style={{ color: 'rgba(241,245,249,0.45)' }}>
+                    {new Date(nextPractice.scheduled_date! + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    {nextPractice.scheduled_time ? ` · ${nextPractice.scheduled_time.slice(0, 5)}` : ''}
+                    {' · '}{nextPractice.drills.length} drills · {nextPractice.duration_mins} min
+                  </p>
+                  <div className="flex gap-2">
+                    <Link href="/practice/planner" className="flex-1 py-2 text-center text-xs font-bold rounded-lg" style={{ backgroundColor: 'rgba(14,207,176,0.1)', color: '#0ECFB0', border: '1px solid rgba(14,207,176,0.2)' }}>
+                      View Plan
+                    </Link>
+                    <Link href={`/practice/run?id=${nextPractice.id}`} className="flex-1 py-2 text-center text-xs font-bold rounded-lg" style={{ backgroundColor: 'rgba(14,207,176,0.15)', color: '#0ECFB0', border: '1px solid rgba(14,207,176,0.3)' }}>
+                      Start Practice →
+                    </Link>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm mb-2" style={{ color: 'rgba(241,245,249,0.4)' }}>No practice scheduled</p>
+                  <Link href="/calendar" className="text-sm font-semibold" style={{ color: '#0ECFB0' }}>Schedule a practice →</Link>
                 </>
               )}
             </AccentCard>

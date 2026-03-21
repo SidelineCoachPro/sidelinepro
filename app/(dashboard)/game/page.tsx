@@ -1,9 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Barlow_Condensed } from 'next/font/google'
 import { useGames, useCreateGame, useUpdateGame, useDeleteGame, type Game } from '@/hooks/useGames'
+import { usePracticePlans } from '@/hooks/usePracticePlans'
+import { EVENT_COLORS } from '@/hooks/useCalendar'
 
 const barlow = Barlow_Condensed({ subsets: ['latin'], weight: '900' })
 
@@ -16,23 +19,20 @@ function daysUntil(iso: string): number {
   const today = new Date(); today.setHours(0, 0, 0, 0)
   return Math.round((game.getTime() - today.getTime()) / 86400000)
 }
-function isSameDay(a: Date, b: Date) {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+function isoToDate(iso: string): string {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
-function getCalendarDays(year: number, month: number): Date[] {
-  const firstOfMonth = new Date(year, month, 1)
-  const days: Date[] = []
-  for (let i = firstOfMonth.getDay() - 1; i >= 0; i--) days.push(new Date(year, month, -i))
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  for (let d = 1; d <= daysInMonth; d++) days.push(new Date(year, month, d))
-  let next = 1
-  while (days.length < 42) days.push(new Date(year, month + 1, next++))
-  return days
+function todayStr(): string {
+  return isoToDate(new Date().toISOString())
 }
-const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
-const DAY_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+function addDays(dateStr: string, n: number): string {
+  const d = new Date(dateStr + 'T00:00:00')
+  d.setDate(d.getDate() + n)
+  return isoToDate(d.toISOString())
+}
 
-// ── Game Form Modal (create + edit) ──────────────────────────────────────────
+// ── Game Form Modal ───────────────────────────────────────────────────────────
 function GameFormModal({ game, onClose }: { game?: Game; onClose: () => void }) {
   const isEdit = !!game
   const { mutateAsync: createGame, isPending: isCreating } = useCreateGame()
@@ -42,8 +42,8 @@ function GameFormModal({ game, onClose }: { game?: Game; onClose: () => void }) 
   const dt = game ? new Date(game.scheduled_at) : null
   const [opponent, setOpponent] = useState(game?.opponent ?? '')
   const [location, setLocation] = useState(game?.location ?? '')
-  const [date, setDate]     = useState(dt ? dt.toISOString().split('T')[0] : new Date().toISOString().split('T')[0])
-  const [time, setTime]     = useState(dt ? dt.toTimeString().slice(0, 5) : '10:00')
+  const [date, setDate] = useState(dt ? dt.toISOString().split('T')[0] : new Date().toISOString().split('T')[0])
+  const [time, setTime] = useState(dt ? dt.toTimeString().slice(0, 5) : '10:00')
   const [notes, setNotes]   = useState(game?.notes ?? '')
   const [error, setError]   = useState('')
 
@@ -53,20 +53,9 @@ function GameFormModal({ game, onClose }: { game?: Game; onClose: () => void }) 
     try {
       const scheduled_at = new Date(`${date}T${time}:00`).toISOString()
       if (isEdit && game) {
-        await updateGame({
-          id: game.id,
-          opponent: opponent.trim(),
-          location: location.trim() || null,
-          scheduled_at,
-          notes: notes.trim() || null,
-        })
+        await updateGame({ id: game.id, opponent: opponent.trim(), location: location.trim() || null, scheduled_at, notes: notes.trim() || null })
       } else {
-        await createGame({
-          opponent: opponent.trim(),
-          location: location.trim() || null,
-          scheduled_at,
-          notes: notes.trim() || null,
-        })
+        await createGame({ opponent: opponent.trim(), location: location.trim() || null, scheduled_at, notes: notes.trim() || null })
       }
       onClose()
     } catch (err) {
@@ -75,11 +64,7 @@ function GameFormModal({ game, onClose }: { game?: Game; onClose: () => void }) 
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="w-full max-w-md rounded-xl flex flex-col overflow-hidden" style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.07)' }}>
         <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid rgba(241,245,249,0.07)' }}>
           <h2 className="text-base font-semibold text-sp-text">{isEdit ? 'Edit Game' : 'Add Game'}</h2>
@@ -121,136 +106,6 @@ function GameFormModal({ game, onClose }: { game?: Game; onClose: () => void }) 
   )
 }
 
-// ── Game Popover ──────────────────────────────────────────────────────────────
-function GamePopover({ game, onClose }: { game: Game; onClose: () => void }) {
-  return (
-    <div
-      className="fixed inset-0 z-40 flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div className="w-full max-w-sm rounded-xl p-5 space-y-3" style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.1)' }}>
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-xs font-medium mb-0.5" style={{ color: 'rgba(241,245,249,0.4)' }}>
-              {new Date(game.scheduled_at).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-            </p>
-            <p className={`text-2xl text-sp-text ${barlow.className}`}>vs {game.opponent}</p>
-          </div>
-          <button onClick={onClose} style={{ color: 'rgba(241,245,249,0.4)' }} className="hover:opacity-60 text-lg leading-none mt-1">✕</button>
-        </div>
-        {game.location && <p className="text-sm" style={{ color: 'rgba(241,245,249,0.5)' }}>📍 {game.location}</p>}
-        <p className="text-sm font-medium" style={{ color: '#F7620A' }}>🕐 {formatGameTime(game.scheduled_at)}</p>
-        <div className="flex gap-2 pt-1">
-          <Link
-            href={`/game/${game.id}/lineup`}
-            onClick={onClose}
-            className="flex-1 text-center py-2 text-sm font-semibold rounded-lg transition-opacity hover:opacity-85"
-            style={{ backgroundColor: '#8B5CF6', color: '#fff' }}
-          >
-            Manage Lineup
-          </Link>
-          <Link
-            href={`/game/${game.id}/track`}
-            onClick={onClose}
-            className="flex-1 text-center py-2 text-sm font-semibold rounded-lg transition-opacity hover:opacity-85"
-            style={{ backgroundColor: '#F7620A', color: '#fff' }}
-          >
-            Track Game
-          </Link>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Calendar View ─────────────────────────────────────────────────────────────
-function CalendarView({ games }: { games: Game[] }) {
-  const today = new Date()
-  const [viewDate, setViewDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
-  const [popoverGame, setPopoverGame] = useState<Game | null>(null)
-
-  const year = viewDate.getFullYear()
-  const month = viewDate.getMonth()
-  const days = getCalendarDays(year, month)
-
-  function gamesOnDay(day: Date) {
-    return games.filter(g => isSameDay(new Date(g.scheduled_at), day))
-  }
-
-  return (
-    <>
-      <div className="rounded-xl overflow-hidden" style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.07)' }}>
-        {/* Month nav */}
-        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(241,245,249,0.07)' }}>
-          <button onClick={() => setViewDate(new Date(year, month - 1, 1))} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/[0.05] transition-colors" style={{ color: 'rgba(241,245,249,0.5)' }}>←</button>
-          <span className={`text-lg text-sp-text ${barlow.className}`}>{MONTH_NAMES[month]} {year}</span>
-          <button onClick={() => setViewDate(new Date(year, month + 1, 1))} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/[0.05] transition-colors" style={{ color: 'rgba(241,245,249,0.5)' }}>→</button>
-        </div>
-
-        {/* Day headers */}
-        <div className="grid grid-cols-7" style={{ borderBottom: '1px solid rgba(241,245,249,0.05)' }}>
-          {DAY_LABELS.map(d => (
-            <div key={d} className="text-center py-2 text-xs font-medium" style={{ color: 'rgba(241,245,249,0.3)' }}>{d}</div>
-          ))}
-        </div>
-
-        {/* Day grid */}
-        <div className="grid grid-cols-7">
-          {days.map((day, i) => {
-            const inMonth = day.getMonth() === month
-            const isToday = isSameDay(day, today)
-            const dayGames = gamesOnDay(day)
-            const isPast = day < today && !isToday
-            const hasGame = dayGames.length > 0
-
-            return (
-              <div
-                key={i}
-                onClick={() => hasGame && setPopoverGame(dayGames[0])}
-                className="relative flex flex-col items-center py-2 px-1 transition-colors"
-                style={{
-                  minHeight: 52,
-                  cursor: hasGame ? 'pointer' : 'default',
-                  borderBottom: i < 35 ? '1px solid rgba(241,245,249,0.04)' : undefined,
-                  borderRight: (i + 1) % 7 !== 0 ? '1px solid rgba(241,245,249,0.04)' : undefined,
-                  outline: isToday ? '1px solid rgba(247,98,10,0.5)' : undefined,
-                  backgroundColor: hasGame && !isPast ? 'rgba(247,98,10,0.04)' : 'transparent',
-                }}
-                onMouseEnter={e => { if (hasGame) (e.currentTarget as HTMLElement).style.backgroundColor = '#141E2D' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = hasGame && !isPast ? 'rgba(247,98,10,0.04)' : 'transparent' }}
-              >
-                <span className="text-xs font-medium" style={{
-                  color: !inMonth ? 'rgba(241,245,249,0.15)'
-                       : isToday ? '#F7620A'
-                       : isPast ? 'rgba(241,245,249,0.3)'
-                       : 'rgba(241,245,249,0.75)',
-                }}>
-                  {day.getDate()}
-                </span>
-                {hasGame && (
-                  <div className="flex gap-0.5 mt-1">
-                    {dayGames.slice(0, 3).map((_, gi) => (
-                      <div key={gi} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: isPast ? 'rgba(247,98,10,0.4)' : '#F7620A' }} />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-
-        <div className="flex items-center gap-2 px-5 py-3" style={{ borderTop: '1px solid rgba(241,245,249,0.05)' }}>
-          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#F7620A' }} />
-          <span className="text-xs" style={{ color: 'rgba(241,245,249,0.3)' }}>Game scheduled · Click day to view details</span>
-        </div>
-      </div>
-
-      {popoverGame && <GamePopover game={popoverGame} onClose={() => setPopoverGame(null)} />}
-    </>
-  )
-}
-
 // ── Game Card ─────────────────────────────────────────────────────────────────
 function GameCard({ game, onDelete }: { game: Game; onDelete: () => void }) {
   const d = daysUntil(game.scheduled_at)
@@ -262,11 +117,7 @@ function GameCard({ game, onDelete }: { game: Game; onDelete: () => void }) {
 
   return (
     <>
-    <div
-      className="rounded-xl p-4 flex gap-4"
-      style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.07)', opacity: isPast ? 0.65 : 1 }}
-    >
-      {/* Date column */}
+    <div className="rounded-xl p-4 flex gap-4" style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.07)', opacity: isPast ? 0.65 : 1 }}>
       <div className="flex-shrink-0 flex flex-col items-center justify-center w-14 text-center">
         <p className="text-xs font-medium uppercase" style={{ color: 'rgba(241,245,249,0.4)' }}>
           {new Date(game.scheduled_at).toLocaleDateString('en-US', { month: 'short' })}
@@ -276,10 +127,7 @@ function GameCard({ game, onDelete }: { game: Game; onDelete: () => void }) {
           {new Date(game.scheduled_at).toLocaleDateString('en-US', { weekday: 'short' })}
         </p>
       </div>
-
       <div className="w-px self-stretch" style={{ backgroundColor: 'rgba(241,245,249,0.07)' }} />
-
-      {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2 mb-1">
           <p className={`text-xl text-sp-text leading-tight truncate ${barlow.className}`}>vs {game.opponent}</p>
@@ -293,16 +141,13 @@ function GameCard({ game, onDelete }: { game: Game; onDelete: () => void }) {
             </span>
           ) : null}
         </div>
-
         {game.location && <p className="text-xs truncate mb-1" style={{ color: 'rgba(241,245,249,0.4)' }}>📍 {game.location}</p>}
         <p className="text-xs mb-2.5" style={{ color: 'rgba(241,245,249,0.4)' }}>🕐 {formatGameTime(game.scheduled_at)}</p>
-
         {hasFinal && (
           <p className="text-sm font-bold mb-2.5" style={{ color: (game.our_score ?? 0) > (game.opponent_score ?? 0) ? '#22C55E' : 'rgba(241,245,249,0.6)' }}>
             {game.our_score ?? '—'} – {game.opponent_score ?? '—'}
           </p>
         )}
-
         <div className="flex items-center gap-2 flex-wrap">
           <Link href={`/game/${game.id}/lineup`} className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-opacity hover:opacity-80" style={{ backgroundColor: 'rgba(139,92,246,0.15)', color: '#8B5CF6', border: '1px solid rgba(139,92,246,0.3)' }}>
             Lineup
@@ -324,9 +169,98 @@ function GameCard({ game, onDelete }: { game: Game; onDelete: () => void }) {
         </div>
       </div>
     </div>
-
     {editing && <GameFormModal game={game} onClose={() => setEditing(false)} />}
     </>
+  )
+}
+
+// ── Season At A Glance ────────────────────────────────────────────────────────
+function SeasonAtAGlance({ games }: { games: Game[] }) {
+  const router = useRouter()
+  const { data: plans = [] } = usePracticePlans()
+
+  const today = todayStr()
+  const days = useMemo(() => Array.from({ length: 14 }, (_, i) => addDays(today, i)), [today])
+
+  // Build events for next 14 days from cached data
+  const eventsByDate = useMemo(() => {
+    const map: Record<string, Array<{ type: 'game' | 'practice'; label: string }>> = {}
+    for (const g of games) {
+      const d = isoToDate(g.scheduled_at)
+      if (days.includes(d)) {
+        if (!map[d]) map[d] = []
+        map[d].push({ type: 'game', label: `vs ${g.opponent}` })
+      }
+    }
+    for (const p of plans) {
+      if (!p.scheduled_date) continue
+      const d = p.scheduled_date
+      if (days.includes(d)) {
+        if (!map[d]) map[d] = []
+        map[d].push({ type: 'practice', label: p.name })
+      }
+    }
+    return map
+  }, [games, plans, days])
+
+  const hasAnyEvent = Object.keys(eventsByDate).length > 0
+  if (!hasAnyEvent) return null
+
+  return (
+    <div className="mb-6 rounded-xl px-4 py-3 overflow-x-auto" style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.07)' }}>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs font-semibold uppercase tracking-wide flex-shrink-0" style={{ color: 'rgba(241,245,249,0.35)' }}>Season at a Glance</p>
+        <Link href="/calendar" className="text-xs font-medium flex-shrink-0" style={{ color: '#F7620A' }}>Full calendar →</Link>
+      </div>
+      <div className="flex gap-2 min-w-0" style={{ minWidth: 'max-content' }}>
+        {days.map(dateStr => {
+          const evs = eventsByDate[dateStr] ?? []
+          const d = new Date(dateStr + 'T00:00:00')
+          const isToday = dateStr === today
+          const monthStr = dateStr.slice(0, 7) // YYYY-MM
+
+          return (
+            <button
+              key={dateStr}
+              onClick={() => router.push(`/calendar?month=${monthStr}`)}
+              className="flex flex-col items-center gap-1 px-2 py-2 rounded-lg transition-colors flex-shrink-0"
+              style={{
+                minWidth: 40,
+                backgroundColor: isToday ? 'rgba(247,98,10,0.08)' : 'transparent',
+                border: isToday ? '1px solid rgba(247,98,10,0.25)' : '1px solid transparent',
+              }}
+            >
+              <span className="text-xs font-medium uppercase" style={{ color: isToday ? '#F7620A' : 'rgba(241,245,249,0.3)', fontSize: 10 }}>
+                {d.toLocaleDateString('en-US', { weekday: 'narrow' })}
+              </span>
+              <span className="text-xs font-semibold" style={{ color: isToday ? '#F7620A' : evs.length ? 'rgba(241,245,249,0.7)' : 'rgba(241,245,249,0.3)' }}>
+                {d.getDate()}
+              </span>
+              <div className="flex gap-0.5 min-h-[8px]">
+                {evs.map((ev, i) => (
+                  <div
+                    key={i}
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{ backgroundColor: ev.type === 'game' ? EVENT_COLORS.game : EVENT_COLORS.practice }}
+                  />
+                ))}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+      <div className="flex items-center gap-4 mt-2 pt-2" style={{ borderTop: '1px solid rgba(241,245,249,0.05)' }}>
+        {[
+          { color: EVENT_COLORS.game, label: 'Game' },
+          { color: EVENT_COLORS.practice, label: 'Practice' },
+        ].map(({ color, label }) => (
+          <div key={label} className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+            <span className="text-xs" style={{ color: 'rgba(241,245,249,0.3)' }}>{label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -366,10 +300,8 @@ function UpcomingView({ games }: { games: Game[] }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function GameDayPage() {
-  const [tab, setTab]     = useState<'upcoming' | 'calendar'>('upcoming')
   const [showAdd, setShowAdd] = useState(false)
   const { data: games = [], isLoading } = useGames()
-
   const upcomingCount = games.filter(g => daysUntil(g.scheduled_at) >= 0).length
 
   return (
@@ -390,27 +322,14 @@ export default function GameDayPage() {
         </button>
       </div>
 
-      <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ backgroundColor: 'rgba(241,245,249,0.04)', border: '1px solid rgba(241,245,249,0.07)' }}>
-        {(['upcoming', 'calendar'] as const).map(t => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className="px-4 py-1.5 rounded-lg text-sm font-medium transition-all"
-            style={{ backgroundColor: tab === t ? '#F7620A' : 'transparent', color: tab === t ? '#fff' : 'rgba(241,245,249,0.45)' }}
-          >
-            {t === 'upcoming' ? 'Upcoming Games' : 'Calendar'}
-          </button>
-        ))}
-      </div>
+      {!isLoading && <SeasonAtAGlance games={games} />}
 
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
           <p className="text-sm" style={{ color: 'rgba(241,245,249,0.35)' }}>Loading...</p>
         </div>
-      ) : tab === 'upcoming' ? (
-        <UpcomingView games={games} />
       ) : (
-        <CalendarView games={games} />
+        <UpcomingView games={games} />
       )}
 
       {showAdd && <GameFormModal onClose={() => setShowAdd(false)} />}

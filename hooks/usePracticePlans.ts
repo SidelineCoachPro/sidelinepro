@@ -21,6 +21,8 @@ export interface PracticePlan {
   character_theme: string | null
   drills: PlanDrill[]
   is_template: boolean
+  scheduled_date: string | null
+  scheduled_time: string | null
   created_at: string
   updated_at: string
 }
@@ -94,6 +96,34 @@ export function useUpdatePracticePlan() {
       const { data, error } = await supabase
         .from('practice_plans')
         .update(rest)
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+      return data as PracticePlan
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['practice_plans'] })
+      qc.setQueryData(['practice_plans', data.id], data)
+    },
+  })
+}
+
+export function useSchedulePractice() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      scheduled_date,
+      scheduled_time,
+    }: {
+      id: string
+      scheduled_date: string | null
+      scheduled_time?: string | null
+    }) => {
+      const { data, error } = await supabase
+        .from('practice_plans')
+        .update({ scheduled_date, scheduled_time: scheduled_time ?? null })
         .eq('id', id)
         .select()
         .single()
