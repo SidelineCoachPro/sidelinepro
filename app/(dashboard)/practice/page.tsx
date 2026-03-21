@@ -2,6 +2,13 @@ import Link from 'next/link'
 
 const sections = [
   {
+    href: '/practice/season',
+    title: 'Season Plan Builder',
+    description: 'Map out your entire season — phases, weekly focus rotation, character themes, and auto-generated practice plans.',
+    color: '#F7620A',
+    icon: '📅',
+  },
+  {
     href: '/practice/planner',
     title: 'Practice Planner',
     description: 'Build full practice plans with AI generation or drag-and-drop scheduling.',
