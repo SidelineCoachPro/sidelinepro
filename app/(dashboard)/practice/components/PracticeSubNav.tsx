@@ -4,22 +4,25 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const TABS = [
-  { href: '/practice/planner', label: 'Plans' },
-  { href: '/practice/drills',  label: 'Drill Library' },
-  { href: '/practice/games',   label: 'Practice Games' },
-  { href: '/practice/plays',   label: 'Plays' },
-  { href: '/practice/season',  label: 'Season Plan' },
+  { href: '/practice',        label: 'Overview',    exact: true },
+  { href: '/practice/drills', label: 'Drill Library' },
+  { href: '/practice/games',  label: 'Games' },
+  { href: '/practice/plays',  label: 'Plays' },
+  { href: '/whiteboard',      label: 'Whiteboard' },
+  { href: '/practice/season', label: 'Season Plan' },
 ]
 
 export default function PracticeSubNav() {
   const path = usePathname()
   return (
     <div
-      className="flex gap-1 mb-6 p-1 rounded-xl w-fit"
+      className="flex flex-wrap gap-1 mb-6 p-1 rounded-xl w-fit"
       style={{ backgroundColor: 'rgba(241,245,249,0.04)', border: '1px solid rgba(241,245,249,0.07)' }}
     >
       {TABS.map(t => {
-        const active = path === t.href || path.startsWith(t.href + '/')
+        const active = t.exact
+          ? path === t.href
+          : path === t.href || path.startsWith(t.href + '/')
         return (
           <Link
             key={t.href}
