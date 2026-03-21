@@ -268,7 +268,7 @@ export default function PlaysPage() {
         <div>
           <h1 className="text-2xl font-bold text-sp-text">Play Library</h1>
           <p className="text-sm mt-0.5" style={{ color: 'rgba(241,245,249,0.4)' }}>
-            Offensive sets, defensive schemes, and special situations with X's and O's diagrams.
+            Offensive sets, defensive schemes, and special situations with X&apos;s and O&apos;s diagrams.
           </p>
         </div>
         <span className="text-sm flex-shrink-0 ml-4" style={{ color: 'rgba(241,245,249,0.35)' }}>
