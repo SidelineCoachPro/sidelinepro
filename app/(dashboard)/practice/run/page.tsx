@@ -95,6 +95,7 @@ function RunInner() {
   const categoryColor = current?.categoryColor ?? getCategoryColor(current?.category ?? '')
 
   const [activeStep, setActiveStep] = useState<number | null>(null)
+  const [showWhiteboardDialog, setShowWhiteboardDialog] = useState(false)
 
   function goNext() {
     if (currentIndex < drills.length - 1) {
@@ -307,6 +308,15 @@ function RunInner() {
                   ))}
                 </div>
               </div>
+
+              {/* Open Whiteboard */}
+              <button
+                onClick={() => setShowWhiteboardDialog(true)}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold mt-2 transition-opacity hover:opacity-85"
+                style={{ backgroundColor: 'rgba(241,245,249,0.06)', color: 'rgba(241,245,249,0.7)', border: '1px solid rgba(241,245,249,0.1)' }}
+              >
+                ✏️ Open on Whiteboard →
+              </button>
             </div>
           )}
 
@@ -437,6 +447,52 @@ function RunInner() {
                 </span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Whiteboard dialog */}
+      {showWhiteboardDialog && playData && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}
+          onClick={e => { if (e.target === e.currentTarget) setShowWhiteboardDialog(false) }}
+        >
+          <div className="w-full max-w-sm rounded-2xl p-6" style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.12)' }}>
+            <p className="text-base font-bold text-sp-text mb-1">Open Whiteboard?</p>
+            <p className="text-sm mb-5" style={{ color: 'rgba(241,245,249,0.45)' }}>
+              The play diagram will be pre-drawn on the whiteboard.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setIsRunning(false)
+                  setShowWhiteboardDialog(false)
+                  router.push(`/whiteboard?playId=${playData.id}&from=practice`)
+                }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-85"
+                style={{ backgroundColor: '#F7620A' }}
+              >
+                Pause &amp; Go
+              </button>
+              <button
+                onClick={() => {
+                  setShowWhiteboardDialog(false)
+                  router.push(`/whiteboard?playId=${playData.id}&from=practice`)
+                }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-85"
+                style={{ backgroundColor: 'rgba(241,245,249,0.08)', color: 'rgba(241,245,249,0.7)' }}
+              >
+                Keep Running
+              </button>
+            </div>
+            <button
+              onClick={() => setShowWhiteboardDialog(false)}
+              className="w-full mt-3 py-2 text-sm"
+              style={{ color: 'rgba(241,245,249,0.3)' }}
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}
