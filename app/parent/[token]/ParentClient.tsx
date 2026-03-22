@@ -23,8 +23,13 @@ interface Practice {
 interface Announcement {
   id: string; title: string; body: string; is_pinned: boolean; created_at: string
 }
+interface Player {
+  id: string; name: string
+}
 type RsvpCounts = Record<string, { yes: number; no: number; maybe: number }>
 type RsvpResponse = 'yes' | 'no' | 'maybe'
+// per-game RSVP map: { [gameId]: { [playerName]: RsvpResponse } }
+type MyRsvps = Record<string, Record<string, RsvpResponse>>
 
 /* ── Helpers ───────────────────────────────────────────────────────────────── */
 function formatDate(iso: string) {
@@ -53,55 +58,70 @@ const RESPONSE_COLOR: Record<RsvpResponse, { bg: string; text: string; border: s
   maybe: { bg: 'rgba(245,183,49,0.12)', text: '#F5B731', border: 'rgba(245,183,49,0.3)' },
 }
 
+const RESP_LABELS: Record<RsvpResponse, string> = {
+  yes: '✓ Going', maybe: '? Maybe', no: '✗ No',
+}
+
 /* ── RSVP Modal ─────────────────────────────────────────────────────────────── */
 function RsvpModal({
   game,
   token,
-  existingRsvp,
+  players,
+  existingRsvps,
   onClose,
   onSaved,
 }: {
   game: UpcomingGame
   token: string
-  existingRsvp: { playerName: string; parentName: string; response: RsvpResponse } | null
+  players: Player[]
+  existingRsvps: Record<string, RsvpResponse>
   onClose: () => void
-  onSaved: (gameId: string, response: RsvpResponse, counts: { yes: number; no: number; maybe: number }) => void
+  onSaved: (gameId: string, playerName: string, response: RsvpResponse, counts: { yes: number; no: number; maybe: number }) => void
 }) {
-  const [playerName, setPlayerName] = useState(existingRsvp?.playerName ?? '')
-  const [parentName, setParentName] = useState(existingRsvp?.parentName ?? '')
-  const [note, setNote] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [confirmed, setConfirmed] = useState<RsvpResponse | null>(null)
+  const [parentName, setParentName] = useState('')
+  // optimistic local responses for this session
+  const [localResponses, setLocalResponses] = useState<Record<string, RsvpResponse>>(existingRsvps)
+  const [saving, setSaving] = useState<string | null>(null) // playerName being saved
 
-  // Pre-fill from localStorage
+  // Pre-fill parent name from localStorage
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('sp_parent_info') ?? '{}')
-      if (!playerName && saved.playerName) setPlayerName(saved.playerName)
-      if (!parentName && saved.parentName) setParentName(saved.parentName)
+      if (saved.parentName) setParentName(saved.parentName)
     } catch { /* ignore */ }
   }, [])
 
-  async function submit(response: RsvpResponse) {
-    if (!playerName.trim()) return
-    setSaving(true)
+  async function submit(playerName: string, response: RsvpResponse) {
+    // Optimistic update
+    setLocalResponses(prev => ({ ...prev, [playerName]: response }))
+    setSaving(playerName)
+
     try {
-      // Save to localStorage for next time
-      localStorage.setItem('sp_parent_info', JSON.stringify({ playerName: playerName.trim(), parentName: parentName.trim() }))
+      localStorage.setItem('sp_parent_info', JSON.stringify({ parentName: parentName.trim() }))
 
       const res = await fetch('/api/parent/rsvp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, gameId: game.id, playerName: playerName.trim(), parentName: parentName.trim(), response, note }),
+        body: JSON.stringify({
+          token,
+          gameId: game.id,
+          playerName,
+          parentName: parentName.trim(),
+          response,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      setConfirmed(response)
-      onSaved(game.id, response, data.counts)
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed to save RSVP')
+      onSaved(game.id, playerName, response, data.counts)
+    } catch {
+      // Revert optimistic update on error
+      setLocalResponses(prev => {
+        const next = { ...prev }
+        delete next[playerName]
+        return next
+      })
     } finally {
-      setSaving(false)
+      setSaving(null)
     }
   }
 
@@ -113,109 +133,114 @@ function RsvpModal({
     >
       <div
         className={`${dmSans.className} w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl overflow-hidden`}
-        style={{ backgroundColor: '#fff', maxHeight: '90vh', overflowY: 'auto' }}
+        style={{ backgroundColor: '#fff', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
       >
-        {/* Handle */}
-        <div className="flex justify-center pt-3 pb-1 sm:hidden">
+        {/* Handle bar (mobile) */}
+        <div className="flex justify-center pt-3 pb-1 sm:hidden flex-shrink-0">
           <div className="w-10 h-1 rounded-full" style={{ backgroundColor: '#E2E8F0' }} />
         </div>
 
-        <div className="px-5 py-4">
-          <div className="flex items-start justify-between mb-4">
+        {/* Header */}
+        <div className="px-5 pt-3 pb-4 flex-shrink-0" style={{ borderBottom: '1px solid #F1F5F9' }}>
+          <div className="flex items-start justify-between mb-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#64748B' }}>
-                {confirmed ? 'Got it!' : 'RSVP for'}
-              </p>
+              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#94A3B8' }}>RSVP</p>
               <p className="text-base font-bold" style={{ color: '#0F172A' }}>
-                vs {game.opponent} · {formatDate(game.scheduled_at)}
+                vs {game.opponent}
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: '#64748B' }}>
+                {formatDate(game.scheduled_at)} · {formatTime(game.scheduled_at)}
+                {game.location ? ` · ${game.location}` : ''}
               </p>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none p-1">✕</button>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none p-1 flex-shrink-0">✕</button>
           </div>
 
-          {confirmed ? (
-            <div className="py-4 text-center">
-              <div className="text-4xl mb-3">
-                {confirmed === 'yes' ? '🎉' : confirmed === 'no' ? '😔' : '🤔'}
-              </div>
-              <p className="text-base font-semibold" style={{ color: '#0F172A' }}>
-                {playerName} is marked as{' '}
-                <span style={{ color: RESPONSE_COLOR[confirmed].text }}>
-                  {confirmed === 'yes' ? 'Going' : confirmed === 'no' ? 'Not Coming' : 'Maybe'}
-                </span>
-              </p>
-              <button
-                onClick={onClose}
-                className="mt-5 w-full py-3 rounded-xl text-sm font-semibold"
-                style={{ backgroundColor: '#F7620A', color: '#fff' }}
-              >
-                Done
-              </button>
+          {/* Parent name */}
+          <div>
+            <label className="block text-xs font-semibold mb-1" style={{ color: '#64748B' }}>
+              Your name (optional)
+            </label>
+            <input
+              value={parentName}
+              onChange={e => setParentName(e.target.value)}
+              placeholder="Parent name"
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none"
+              style={{ border: '1.5px solid #E2E8F0', color: '#0F172A', backgroundColor: '#F8FAFC' }}
+            />
+          </div>
+        </div>
+
+        {/* Player list */}
+        <div className="overflow-y-auto flex-1">
+          {players.length === 0 ? (
+            <div className="px-5 py-8 text-center">
+              <p className="text-sm" style={{ color: '#94A3B8' }}>No players on the roster yet.</p>
             </div>
           ) : (
-            <>
-              <div className="space-y-3 mb-5">
-                <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: '#64748B' }}>
-                    Player name *
-                  </label>
-                  <input
-                    value={playerName}
-                    onChange={e => setPlayerName(e.target.value)}
-                    placeholder="e.g. Marcus Thompson"
-                    className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
-                    style={{ border: '1.5px solid #E2E8F0', color: '#0F172A', backgroundColor: '#F8FAFC' }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: '#64748B' }}>
-                    Your name (optional)
-                  </label>
-                  <input
-                    value={parentName}
-                    onChange={e => setParentName(e.target.value)}
-                    placeholder="Parent name"
-                    className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
-                    style={{ border: '1.5px solid #E2E8F0', color: '#0F172A', backgroundColor: '#F8FAFC' }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: '#64748B' }}>
-                    Note (optional)
-                  </label>
-                  <input
-                    value={note}
-                    onChange={e => setNote(e.target.value)}
-                    placeholder="e.g. We'll be 10 min late"
-                    className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
-                    style={{ border: '1.5px solid #E2E8F0', color: '#0F172A', backgroundColor: '#F8FAFC' }}
-                  />
-                </div>
-              </div>
+            players.map((player, i) => {
+              const myResp = localResponses[player.name]
+              const isSavingThis = saving === player.name
+              return (
+                <div
+                  key={player.id}
+                  className="px-5 py-3.5 flex items-center gap-3"
+                  style={{ borderBottom: i < players.length - 1 ? '1px solid #F1F5F9' : 'none' }}
+                >
+                  {/* Player initial avatar */}
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+                    style={{
+                      backgroundColor: myResp ? RESPONSE_COLOR[myResp].bg : '#F1F5F9',
+                      color: myResp ? RESPONSE_COLOR[myResp].text : '#94A3B8',
+                    }}
+                  >
+                    {player.name.charAt(0).toUpperCase()}
+                  </div>
 
-              {!playerName.trim() && (
-                <p className="text-xs text-center mb-3" style={{ color: '#EF4444' }}>Enter player name to continue</p>
-              )}
+                  {/* Name */}
+                  <p className="flex-1 text-sm font-semibold truncate" style={{ color: '#0F172A' }}>
+                    {player.name}
+                  </p>
 
-              <div className="grid grid-cols-3 gap-2">
-                {(['yes', 'maybe', 'no'] as RsvpResponse[]).map(r => {
-                  const c = RESPONSE_COLOR[r]
-                  const labels: Record<RsvpResponse, string> = { yes: '✓ Going!', maybe: '? Maybe', no: '✗ Can\'t Go' }
-                  return (
-                    <button
-                      key={r}
-                      onClick={() => submit(r)}
-                      disabled={saving || !playerName.trim()}
-                      className="py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
-                      style={{ backgroundColor: c.bg, color: c.text, border: `1.5px solid ${c.border}` }}
-                    >
-                      {saving ? '…' : labels[r]}
-                    </button>
-                  )
-                })}
-              </div>
-            </>
+                  {/* Response buttons */}
+                  <div className="flex gap-1.5 flex-shrink-0">
+                    {(['yes', 'maybe', 'no'] as RsvpResponse[]).map(r => {
+                      const c = RESPONSE_COLOR[r]
+                      const active = myResp === r
+                      return (
+                        <button
+                          key={r}
+                          onClick={() => submit(player.name, r)}
+                          disabled={isSavingThis}
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+                          style={{
+                            backgroundColor: active ? c.bg : '#F8FAFC',
+                            color: active ? c.text : '#94A3B8',
+                            border: `1.5px solid ${active ? c.border : '#E2E8F0'}`,
+                            minWidth: 44,
+                          }}
+                        >
+                          {isSavingThis && myResp === r ? '…' : RESP_LABELS[r]}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })
           )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-4 flex-shrink-0" style={{ borderTop: '1px solid #F1F5F9' }}>
+          <button
+            onClick={onClose}
+            className="w-full py-3 rounded-xl text-sm font-semibold"
+            style={{ backgroundColor: '#F7620A', color: '#fff' }}
+          >
+            Done
+          </button>
         </div>
       </div>
     </div>
@@ -226,28 +251,33 @@ function RsvpModal({
 function GameCard({
   game,
   token,
+  players,
   counts,
-  myRsvp,
+  myRsvps,
   onRsvpUpdated,
 }: {
   game: UpcomingGame
   token: string
+  players: Player[]
   counts: { yes: number; no: number; maybe: number }
-  myRsvp: RsvpResponse | null
-  onRsvpUpdated: (gameId: string, response: RsvpResponse, counts: { yes: number; no: number; maybe: number }) => void
+  myRsvps: Record<string, RsvpResponse>
+  onRsvpUpdated: (gameId: string, playerName: string, response: RsvpResponse, counts: { yes: number; no: number; maybe: number }) => void
 }) {
   const [rsvpOpen, setRsvpOpen] = useState(false)
   const [localCounts, setLocalCounts] = useState(counts)
   const today = isToday(game.scheduled_at)
 
-  function handleSaved(gameId: string, response: RsvpResponse, newCounts: { yes: number; no: number; maybe: number }) {
+  function handleSaved(gameId: string, playerName: string, response: RsvpResponse, newCounts: { yes: number; no: number; maybe: number }) {
     setLocalCounts(newCounts)
-    onRsvpUpdated(gameId, response, newCounts)
+    onRsvpUpdated(gameId, playerName, response, newCounts)
   }
 
-  const existingRsvp = myRsvp
-    ? { playerName: '', parentName: '', response: myRsvp }
-    : null
+  // Summary of this player's own RSVPs for this game
+  const myResponses = Object.values(myRsvps)
+  const myYes = myResponses.filter(r => r === 'yes').length
+  const myNo = myResponses.filter(r => r === 'no').length
+  const myMaybe = myResponses.filter(r => r === 'maybe').length
+  const hasMyRsvp = myResponses.length > 0
 
   return (
     <>
@@ -281,32 +311,47 @@ function GameCard({
           {formatTime(game.scheduled_at)}{game.location ? ` · ${game.location}` : ''}
         </p>
 
-        {/* RSVP buttons */}
-        <div className="flex gap-2 mb-3">
-          {(['yes', 'maybe', 'no'] as RsvpResponse[]).map(r => {
-            const c = RESPONSE_COLOR[r]
-            const active = myRsvp === r
-            const labels: Record<RsvpResponse, string> = { yes: '✓ Going', maybe: '? Maybe', no: '✗ Can\'t Go' }
-            return (
-              <button
-                key={r}
-                onClick={() => setRsvpOpen(true)}
-                className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
-                style={{
-                  backgroundColor: active ? c.bg : '#F8FAFC',
-                  color: active ? c.text : '#64748B',
-                  border: `1.5px solid ${active ? c.border : '#E2E8F0'}`,
-                }}
-              >
-                {labels[r]}
-              </button>
-            )
-          })}
-        </div>
+        {/* My RSVP summary or RSVP button */}
+        {hasMyRsvp ? (
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex gap-1.5 flex-wrap">
+              {myYes > 0 && (
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: RESPONSE_COLOR.yes.bg, color: RESPONSE_COLOR.yes.text }}>
+                  {myYes === 1 ? Object.entries(myRsvps).find(([,v]) => v === 'yes')?.[0] : `${myYes} going`} ✓
+                </span>
+              )}
+              {myMaybe > 0 && (
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: RESPONSE_COLOR.maybe.bg, color: RESPONSE_COLOR.maybe.text }}>
+                  {myMaybe === 1 ? Object.entries(myRsvps).find(([,v]) => v === 'maybe')?.[0] : `${myMaybe} maybe`} ?
+                </span>
+              )}
+              {myNo > 0 && (
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: RESPONSE_COLOR.no.bg, color: RESPONSE_COLOR.no.text }}>
+                  {myNo === 1 ? Object.entries(myRsvps).find(([,v]) => v === 'no')?.[0] : `${myNo} can't go`} ✗
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => setRsvpOpen(true)}
+              className="text-xs font-semibold flex-shrink-0"
+              style={{ color: '#F7620A' }}
+            >
+              Edit
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setRsvpOpen(true)}
+            className="w-full py-2.5 rounded-xl text-sm font-semibold mb-2 transition-all hover:opacity-90"
+            style={{ backgroundColor: 'rgba(247,98,10,0.08)', color: '#F7620A', border: '1.5px solid rgba(247,98,10,0.2)' }}
+          >
+            RSVP for this game →
+          </button>
+        )}
 
-        {/* Count summary */}
+        {/* Team-wide count summary */}
         {(localCounts.yes + localCounts.no + localCounts.maybe) > 0 && (
-          <p className="text-xs" style={{ color: '#94A3B8' }}>
+          <p className="text-xs" style={{ color: '#CBD5E1' }}>
             {localCounts.yes > 0 && `${localCounts.yes} going`}
             {localCounts.yes > 0 && localCounts.maybe > 0 && ' · '}
             {localCounts.maybe > 0 && `${localCounts.maybe} maybe`}
@@ -320,7 +365,8 @@ function GameCard({
         <RsvpModal
           game={game}
           token={token}
-          existingRsvp={existingRsvp}
+          players={players}
+          existingRsvps={myRsvps}
           onClose={() => setRsvpOpen(false)}
           onSaved={handleSaved}
         />
@@ -392,6 +438,7 @@ export default function ParentClient({
   practices,
   announcements,
   rsvpCounts,
+  players,
 }: {
   token: string
   team: Team
@@ -401,13 +448,13 @@ export default function ParentClient({
   practices: Practice[]
   announcements: Announcement[]
   rsvpCounts: RsvpCounts
+  players: Player[]
 }) {
   const [tab, setTab] = useState<'schedule' | 'results' | 'announcements'>('schedule')
   const [liveCounts, setLiveCounts] = useState<RsvpCounts>(rsvpCounts)
-  // gameId → response
-  const [myRsvps, setMyRsvps] = useState<Record<string, RsvpResponse>>({})
+  const [myRsvps, setMyRsvps] = useState<MyRsvps>({})
 
-  // Load persisted RSVP choices from localStorage on mount
+  // Load persisted RSVPs from localStorage on mount
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(`sp_rsvps_${token}`) ?? '{}')
@@ -415,10 +462,18 @@ export default function ParentClient({
     } catch { /* ignore */ }
   }, [token])
 
-  const handleRsvpUpdated = useCallback((gameId: string, response: RsvpResponse, counts: { yes: number; no: number; maybe: number }) => {
+  const handleRsvpUpdated = useCallback((
+    gameId: string,
+    playerName: string,
+    response: RsvpResponse,
+    counts: { yes: number; no: number; maybe: number },
+  ) => {
     setLiveCounts(prev => ({ ...prev, [gameId]: counts }))
     setMyRsvps(prev => {
-      const next = { ...prev, [gameId]: response }
+      const next = {
+        ...prev,
+        [gameId]: { ...(prev[gameId] ?? {}), [playerName]: response },
+      }
       try { localStorage.setItem(`sp_rsvps_${token}`, JSON.stringify(next)) } catch { /* ignore */ }
       return next
     })
@@ -426,7 +481,6 @@ export default function ParentClient({
 
   const coachName = coachDisplayName(coach)
   const avatarSrc = coach?.avatar_url?.split('?')[0] ?? null
-  const unreadAnnouncements = announcements.length
 
   return (
     <div className={`${dmSans.className} min-h-screen`} style={{ backgroundColor: '#F8FAFC', color: '#0F172A' }}>
@@ -464,7 +518,7 @@ export default function ParentClient({
           {([
             { key: 'schedule',      label: 'Schedule' },
             { key: 'results',       label: 'Results' },
-            { key: 'announcements', label: `Announcements${unreadAnnouncements > 0 ? ` (${unreadAnnouncements})` : ''}` },
+            { key: 'announcements', label: `Announcements${announcements.length > 0 ? ` (${announcements.length})` : ''}` },
           ] as const).map(t => (
             <button
               key={t.key}
@@ -487,7 +541,6 @@ export default function ParentClient({
         {/* ── Schedule Tab ── */}
         {tab === 'schedule' && (
           <>
-            {/* Upcoming Games */}
             <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#94A3B8' }}>
               Upcoming Games
             </p>
@@ -502,15 +555,15 @@ export default function ParentClient({
                     key={game.id}
                     game={game}
                     token={token}
+                    players={players}
                     counts={liveCounts[game.id] ?? { yes: 0, no: 0, maybe: 0 }}
-                    myRsvp={myRsvps[game.id] ?? null}
+                    myRsvps={myRsvps[game.id] ?? {}}
                     onRsvpUpdated={handleRsvpUpdated}
                   />
                 ))}
               </div>
             )}
 
-            {/* Upcoming Practices */}
             <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: 20, marginBottom: 4 }}>
               <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#94A3B8' }}>
                 Practices This Week
@@ -547,9 +600,7 @@ export default function ParentClient({
             </p>
             {pastGames.length === 0 ? (
               <div className="rounded-xl p-6 text-center" style={{ backgroundColor: '#fff', border: '1px solid #E2E8F0' }}>
-                <p className="text-sm" style={{ color: '#94A3B8' }}>
-                  No results yet — season is just getting started!
-                </p>
+                <p className="text-sm" style={{ color: '#94A3B8' }}>No results yet — season is just getting started!</p>
               </div>
             ) : (
               pastGames.map(game => <PastGameCard key={game.id} game={game} />)

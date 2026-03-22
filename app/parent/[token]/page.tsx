@@ -60,7 +60,7 @@ export default async function ParentPage({ params }: Props) {
   const twoWeeksISO = new Date(Date.now() + 14 * 86400000).toISOString()
   const todayDate = todayISO.split('T')[0]
 
-  const [teamRes, coachRes, upcomingGamesRes, pastGamesRes, practicesRes, announcementsRes] =
+  const [teamRes, coachRes, upcomingGamesRes, pastGamesRes, practicesRes, announcementsRes, playersRes] =
     await Promise.all([
       admin.from('teams').select('id, name, emoji, color, season_year').eq('id', teamId).single(),
       admin.from('coaches').select('full_name, display_name, avatar_url').eq('id', coachId).single(),
@@ -92,6 +92,11 @@ export default async function ParentPage({ params }: Props) {
         .eq('team_id', teamId)
         .order('is_pinned', { ascending: false })
         .order('created_at', { ascending: false }),
+      admin
+        .from('players')
+        .select('id, first_name, last_name')
+        .eq('team_id', teamId)
+        .order('first_name', { ascending: true }),
     ])
 
   // ── RSVP counts for upcoming games ─────────────────────────────────────────
@@ -120,6 +125,7 @@ export default async function ParentPage({ params }: Props) {
       practices={practicesRes.data ?? []}
       announcements={announcementsRes.data ?? []}
       rsvpCounts={rsvpCounts}
+      players={(playersRes.data ?? []).map(p => ({ id: p.id, name: `${p.first_name} ${p.last_name ?? ''}`.trim() }))}
     />
   )
 }
