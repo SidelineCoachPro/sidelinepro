@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -12,6 +12,7 @@ import { useEvaluations, type Evaluation } from '@/hooks/useEvaluations'
 import { usePracticePlans, type PracticePlan } from '@/hooks/usePracticePlans'
 import { useTeam } from '@/lib/teamContext'
 import { useTeams } from '@/hooks/useTeams'
+import { useProfile } from '@/hooks/useProfile'
 
 const barlow = Barlow_Condensed({ subsets: ['latin'], weight: '900' })
 const supabase = createClient()
@@ -97,6 +98,40 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 // ── Attention players helper ───────────────────────────────────────────────────
+
+function ProfileNudge() {
+  const [dismissed, setDismissed] = useState(false)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && localStorage.getItem('sp_profile_nudge_dismissed')) setDismissed(true)
+  }, [])
+  if (dismissed) return null
+  return (
+    <div
+      className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl mb-5"
+      style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.08)' }}
+    >
+      <div className="flex items-center gap-3">
+        <span className="text-xl">👤</span>
+        <div>
+          <p className="text-sm font-semibold text-sp-text">Complete your profile</p>
+          <p className="text-xs" style={{ color: 'rgba(241,245,249,0.4)' }}>Add your name and photo — they appear in PDFs you share with parents.</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <a href="/settings/profile" className="text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ backgroundColor: 'rgba(247,98,10,0.15)', color: '#F7620A', border: '1px solid rgba(247,98,10,0.3)' }}>
+          Set Up Profile →
+        </a>
+        <button
+          onClick={() => { localStorage.setItem('sp_profile_nudge_dismissed', '1'); setDismissed(true) }}
+          className="text-xs hover:opacity-60 transition-opacity"
+          style={{ color: 'rgba(241,245,249,0.3)' }}
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  )
+}
 
 function computeAttentionPlayers(players: Player[], evals: Evaluation[], limit = 3) {
   const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000
@@ -241,6 +276,7 @@ export default function DashboardPage() {
   const { activeTeamId, setActiveTeamId } = useTeam()
   const { data: teams = [] } = useTeams()
   const activeTeam = teams.find(t => t.id === activeTeamId) ?? null
+  const { data: profile } = useProfile()
 
   // Auth user (for first name)
   const { data: authUser } = useQuery({
@@ -277,9 +313,11 @@ export default function DashboardPage() {
   // ── Derived values ─────────────────────────────────────────────────────────
 
   const firstName = useMemo(() => {
+    if (profile?.displayName) return profile.displayName
+    if (profile?.fullName) return profile.fullName.split(' ')[0]
     const full = authUser?.user_metadata?.full_name as string | undefined
     return full?.split(' ')[0] ?? ''
-  }, [authUser])
+  }, [profile, authUser])
 
   const today = useMemo(() => new Date(), [])
 
@@ -392,16 +430,33 @@ export default function DashboardPage() {
     window.dispatchEvent(new CustomEvent('openCommsPanel'))
   }
 
+  const AVATAR_COLORS = ['#3A86FF','#F7620A','#0ECFB0','#8B5CF6','#F5B731','#E879F9','#22C55E','#EF4444']
+  function avatarColor(id: string) { let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) & 0xffffffff; return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length] }
+  const accentColor = avatarColor(profile?.id ?? '')
+  const showNudge = profile && !profile.displayName && !profile.avatarUrl
+
   return (
     <div>
+      {/* ── Profile nudge ── */}
+      {showNudge && <ProfileNudge />}
+
       {/* ── Greeting ── */}
       <div className="mb-6">
-        <h1
-          className={`${barlow.className} text-sp-text`}
-          style={{ fontSize: 36, fontWeight: 900, lineHeight: 1.15 }}
-        >
-          {greeting}
-        </h1>
+        <div className="flex items-center gap-3 mb-1">
+          {profile?.avatarUrl ? (
+            <img src={profile.avatarUrl} alt="" className="rounded-full object-cover flex-shrink-0" style={{ width: 40, height: 40 }} />
+          ) : (
+            <div className="rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0" style={{ width: 40, height: 40, backgroundColor: accentColor }}>
+              {(profile?.email?.[0] ?? '?').toUpperCase()}
+            </div>
+          )}
+          <h1
+            className={`${barlow.className} text-sp-text`}
+            style={{ fontSize: 36, fontWeight: 900, lineHeight: 1.15 }}
+          >
+            {greeting}
+          </h1>
+        </div>
         {activeTeam ? (
           <div className="flex items-center gap-1.5 mt-1">
             <span style={{ fontSize: 16 }}>{activeTeam.emoji}</span>

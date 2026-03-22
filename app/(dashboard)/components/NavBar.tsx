@@ -7,6 +7,7 @@ import { Barlow_Condensed } from 'next/font/google'
 import { signOut } from '@/app/actions/auth'
 import { useTeam } from '@/lib/teamContext'
 import { useTeams, useCreateTeam, type Team } from '@/hooks/useTeams'
+import { useProfile } from '@/hooks/useProfile'
 
 const barlow = Barlow_Condensed({ subsets: ['latin'], weight: '900' })
 
@@ -225,16 +226,29 @@ function AddTeamModal({
 
 // ── Main NavBar ───────────────────────────────────────────────────────────────
 
+const AVATAR_COLORS = ['#3A86FF','#F7620A','#0ECFB0','#8B5CF6','#F5B731','#E879F9','#22C55E','#EF4444']
+function avatarColor(id: string) {
+  let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) & 0xffffffff
+  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length]
+}
+function nameInitials(name: string | null, email: string) {
+  if (name?.trim()) { const p = name.trim().split(' '); return (p[0][0] + (p[1]?.[0] ?? '')).toUpperCase() }
+  return email[0]?.toUpperCase() ?? '?'
+}
+
 export default function NavBar({ email }: { email: string }) {
   const pathname = usePathname()
-  const [mobileOpen, setMobileOpen]         = useState(false)
+  const [mobileOpen, setMobileOpen]             = useState(false)
   const [teamDropdownOpen, setTeamDropdownOpen] = useState(false)
-  const [addModalOpen, setAddModalOpen]     = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false)
+  const [addModalOpen, setAddModalOpen]         = useState(false)
+  const dropdownRef     = useRef<HTMLDivElement>(null)
+  const userDropdownRef = useRef<HTMLDivElement>(null)
 
   const { activeTeamId, setActiveTeamId } = useTeam()
   const { data: teams = [] }              = useTeams()
   const activeTeam = teams.find(t => t.id === activeTeamId) ?? null
+  const { data: profile }                 = useProfile()
 
   // Reset stale team selection (team was deleted)
   useEffect(() => {
@@ -243,16 +257,15 @@ export default function NavBar({ email }: { email: string }) {
     }
   }, [teams, activeTeamId, setActiveTeamId])
 
-  // Close dropdown on outside click
+  // Close dropdowns on outside click
   useEffect(() => {
     function handle(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setTeamDropdownOpen(false)
-      }
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setTeamDropdownOpen(false)
+      if (userDropdownRef.current && !userDropdownRef.current.contains(e.target as Node)) setUserDropdownOpen(false)
     }
-    if (teamDropdownOpen) document.addEventListener('mousedown', handle)
+    if (teamDropdownOpen || userDropdownOpen) document.addEventListener('mousedown', handle)
     return () => document.removeEventListener('mousedown', handle)
-  }, [teamDropdownOpen])
+  }, [teamDropdownOpen, userDropdownOpen])
 
   function selectTeam(id: string | null) {
     setActiveTeamId(id)
@@ -403,19 +416,61 @@ export default function NavBar({ email }: { email: string }) {
               })}
             </div>
 
-            {/* User + sign out */}
-            <div className="hidden md:flex items-center gap-4 flex-shrink-0">
-              <span className="text-xs" style={{ color: 'rgba(241,245,249,0.35)' }}>
-                {email}
-              </span>
-              <form action={signOut}>
-                <button
-                  type="submit"
-                  className="text-sm font-medium text-sp-orange hover:opacity-75 transition-opacity"
+            {/* User avatar dropdown */}
+            <div className="hidden md:block relative flex-shrink-0" ref={userDropdownRef}>
+              <button
+                onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                className="flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors"
+                style={{ backgroundColor: 'rgba(241,245,249,0.04)', border: '1px solid rgba(241,245,249,0.09)' }}
+              >
+                {profile?.avatarUrl ? (
+                  <img src={profile.avatarUrl} alt="" className="rounded-full object-cover flex-shrink-0" style={{ width: 28, height: 28 }} />
+                ) : (
+                  <div
+                    className="rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                    style={{ width: 28, height: 28, backgroundColor: avatarColor(profile?.id ?? email) }}
+                  >
+                    {nameInitials(profile?.displayName ?? profile?.fullName ?? null, email)}
+                  </div>
+                )}
+                <span className="text-sm font-medium max-w-[110px] truncate" style={{ color: 'rgba(241,245,249,0.7)' }}>
+                  {profile?.displayName ?? profile?.fullName ?? email.split('@')[0]}
+                </span>
+                <svg className="w-3 h-3 flex-shrink-0" style={{ color: 'rgba(241,245,249,0.3)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {userDropdownOpen && (
+                <div
+                  className="absolute top-full right-0 mt-1 w-56 rounded-xl overflow-hidden z-50"
+                  style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.1)', boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}
                 >
-                  Sign out
-                </button>
-              </form>
+                  {/* Identity */}
+                  <div className="px-3 py-3" style={{ borderBottom: '1px solid rgba(241,245,249,0.06)' }}>
+                    <p className="text-sm font-semibold text-sp-text truncate">{profile?.displayName ?? profile?.fullName ?? email.split('@')[0]}</p>
+                    <p className="text-xs truncate" style={{ color: 'rgba(241,245,249,0.35)' }}>{email}</p>
+                  </div>
+                  {/* Links */}
+                  <div style={{ borderBottom: '1px solid rgba(241,245,249,0.06)' }}>
+                    <Link href="/settings/profile" onClick={() => setUserDropdownOpen(false)} className="flex items-center gap-2 px-3 py-2.5 text-sm transition-colors hover:bg-white/5" style={{ color: 'rgba(241,245,249,0.7)' }}>
+                      👤 Profile Settings
+                    </Link>
+                    <Link href="/settings/teams" onClick={() => setUserDropdownOpen(false)} className="flex items-center gap-2 px-3 py-2.5 text-sm transition-colors hover:bg-white/5" style={{ color: 'rgba(241,245,249,0.7)' }}>
+                      🏀 Manage Teams
+                    </Link>
+                    <Link href="/settings/profile#pdf" onClick={() => setUserDropdownOpen(false)} className="flex items-center gap-2 px-3 py-2.5 text-sm transition-colors hover:bg-white/5" style={{ color: 'rgba(241,245,249,0.7)' }}>
+                      📄 PDF Settings
+                    </Link>
+                  </div>
+                  {/* Sign out */}
+                  <form action={signOut}>
+                    <button type="submit" className="w-full text-left flex items-center gap-2 px-3 py-2.5 text-sm transition-colors hover:bg-white/5" style={{ color: '#F7620A' }}>
+                      Sign Out
+                    </button>
+                  </form>
+                </div>
+              )}
             </div>
 
             {/* Mobile hamburger */}
@@ -502,17 +557,22 @@ export default function NavBar({ email }: { email: string }) {
               </Link>
             ))}
 
-            <div
-              className="pt-3 mt-2"
-              style={{ borderTop: '1px solid rgba(241,245,249,0.07)' }}
-            >
-              <p className="text-xs mb-3" style={{ color: 'rgba(241,245,249,0.3)' }}>
-                {email}
-              </p>
+            <div className="pt-3 mt-2" style={{ borderTop: '1px solid rgba(241,245,249,0.07)' }}>
+              <div className="flex items-center gap-2 mb-3">
+                {profile?.avatarUrl ? (
+                  <img src={profile.avatarUrl} alt="" className="rounded-full object-cover" style={{ width: 28, height: 28 }} />
+                ) : (
+                  <div className="rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ width: 28, height: 28, backgroundColor: avatarColor(profile?.id ?? email) }}>
+                    {nameInitials(profile?.displayName ?? profile?.fullName ?? null, email)}
+                  </div>
+                )}
+                <p className="text-xs truncate" style={{ color: 'rgba(241,245,249,0.4)' }}>{email}</p>
+              </div>
+              <Link href="/settings/profile" onClick={() => setMobileOpen(false)} className="block text-sm mb-2" style={{ color: 'rgba(241,245,249,0.5)' }}>
+                Profile Settings
+              </Link>
               <form action={signOut}>
-                <button type="submit" className="text-sm font-medium text-sp-orange">
-                  Sign out
-                </button>
+                <button type="submit" className="text-sm font-medium text-sp-orange">Sign out</button>
               </form>
             </div>
           </div>

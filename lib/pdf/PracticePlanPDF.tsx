@@ -1,6 +1,6 @@
 'use client'
 
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
+import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer'
 import { baseStyles, PDF_COLORS } from './styles'
 import type { PracticePlan, PlanDrill } from '@/hooks/usePracticePlans'
 import { drills as staticDrills } from '@/data/drills'
@@ -108,9 +108,13 @@ function getDrillDetail(drill: PlanDrill): DrillDetail {
 export default function PracticePlanPDF({
   plan,
   coachName = '',
+  coachAvatarUrl,
+  showPhotoInPdfs = true,
 }: {
   plan: PracticePlan
   coachName?: string
+  coachAvatarUrl?: string
+  showPhotoInPdfs?: boolean
 }) {
   const totalMins = plan.drills.reduce((s, d) => s + d.durationMins, 0)
   const theme = plan.character_theme ?? ''
@@ -121,9 +125,14 @@ export default function PracticePlanPDF({
       <Page size="LETTER" style={baseStyles.page}>
         {/* ── Header ─────────────────────────────── */}
         <View style={baseStyles.headerBar}>
-          <View>
-            <Text style={baseStyles.logo}>SidelinePro</Text>
-            <Text style={baseStyles.logoSub}>sidelinecoachpro.com</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {coachAvatarUrl && showPhotoInPdfs ? (
+              <Image src={coachAvatarUrl.split('?')[0]} style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }} />
+            ) : null}
+            <View>
+              <Text style={baseStyles.logo}>SidelinePro</Text>
+              <Text style={baseStyles.logoSub}>sidelinecoachpro.com</Text>
+            </View>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
             {coachName ? <Text style={{ fontSize: 9, color: PDF_COLORS.muted, marginBottom: 2 }}>{coachName}</Text> : null}

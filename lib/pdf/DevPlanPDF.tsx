@@ -1,6 +1,6 @@
 'use client'
 
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
+import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer'
 import { baseStyles, PDF_COLORS } from './styles'
 import type { DevPlan } from '@/hooks/useDevPlans'
 import type { Player } from '@/hooks/usePlayers'
@@ -107,13 +107,17 @@ export default function DevPlanPDF({
   player,
   evaluation,
   coachName = '',
+  coachAvatarUrl,
+  showPhotoInPdfs = true,
   colorIndex = 0,
 }: {
-  plan:        DevPlan
-  player:      Player
-  evaluation?: Evaluation | null
-  coachName?:  string
-  colorIndex?: number
+  plan:             DevPlan
+  player:           Player
+  evaluation?:      Evaluation | null
+  coachName?:       string
+  coachAvatarUrl?:  string
+  showPhotoInPdfs?: boolean
+  colorIndex?:      number
 }) {
   const skillLabel = SKILL_LABEL[plan.focus_skill] ?? plan.focus_skill
   const skillColor = SKILL_COLOR[plan.focus_skill] ?? PDF_COLORS.orange
@@ -136,9 +140,14 @@ export default function DevPlanPDF({
       <Page size="LETTER" style={baseStyles.page}>
         {/* ── Header ──────────────────────────────── */}
         <View style={baseStyles.headerBar}>
-          <View>
-            <Text style={baseStyles.logo}>SidelinePro</Text>
-            <Text style={baseStyles.logoSub}>sidelinecoachpro.com</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {coachAvatarUrl && showPhotoInPdfs ? (
+              <Image src={coachAvatarUrl.split('?')[0]} style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }} />
+            ) : null}
+            <View>
+              <Text style={baseStyles.logo}>SidelinePro</Text>
+              <Text style={baseStyles.logoSub}>sidelinecoachpro.com</Text>
+            </View>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
             {coachName ? <Text style={{ fontSize: 9, color: PDF_COLORS.muted, marginBottom: 2 }}>Coach {coachName}</Text> : null}

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { PDFDownloadLink } from '@react-pdf/renderer'
 import PracticePlanPDF from './PracticePlanPDF'
 import type { PracticePlan } from '@/hooks/usePracticePlans'
+import { useProfile } from '@/hooks/useProfile'
 
 export default function PracticePlanButton({
   plan,
@@ -16,8 +17,12 @@ export default function PracticePlanButton({
   className?: string
   style?:     React.CSSProperties
 }) {
+  const { data: profile } = useProfile()
   const [requested, setRequested] = useState(false)
   const fileName = `${plan.name.replace(/[^a-z0-9]/gi, '_')}_practice_plan.pdf`
+  const resolvedName   = coachName || profile?.displayName || profile?.fullName || ''
+  const avatarUrl      = profile?.avatarUrl ?? undefined
+  const showPhotoInPdfs = profile?.showPhotoInPdfs ?? true
 
   if (!requested) {
     return (
@@ -29,7 +34,14 @@ export default function PracticePlanButton({
 
   return (
     <PDFDownloadLink
-      document={<PracticePlanPDF plan={plan} coachName={coachName} />}
+      document={
+        <PracticePlanPDF
+          plan={plan}
+          coachName={resolvedName}
+          coachAvatarUrl={avatarUrl}
+          showPhotoInPdfs={showPhotoInPdfs}
+        />
+      }
       fileName={fileName}
       className={className}
       style={style}

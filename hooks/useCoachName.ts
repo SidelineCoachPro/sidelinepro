@@ -1,14 +1,12 @@
-import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { useProfile } from './useProfile'
 
-export function useCoachName() {
-  const [name, setName] = useState('')
-  useEffect(() => {
-    const sb = createClient()
-    sb.auth.getUser().then(({ data }) => {
-      const meta = data.user?.user_metadata
-      setName(meta?.full_name ?? meta?.name ?? data.user?.email?.split('@')[0] ?? '')
-    })
-  }, [])
-  return name
+export function useCoachName(): string {
+  const { data: profile } = useProfile()
+  if (!profile) return ''
+  return (
+    profile.displayName ??
+    profile.fullName?.split(' ')[0] ??
+    profile.email.split('@')[0] ??
+    ''
+  )
 }
