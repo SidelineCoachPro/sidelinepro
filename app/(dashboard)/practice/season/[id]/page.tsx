@@ -360,7 +360,6 @@ function PhaseSection({
   phase,
   plan,
   practicesByWeek,
-  seasonPracticeCount,
   collapsedPhases,
   onToggleCollapse,
   startPracticeNum,
@@ -368,7 +367,6 @@ function PhaseSection({
   phase: SeasonPhase
   plan: SeasonPlan
   practicesByWeek: Record<number, PracticePlan[]>
-  seasonPracticeCount: number
   collapsedPhases: Set<string>
   onToggleCollapse: (name: string) => void
   startPracticeNum: number
@@ -894,7 +892,6 @@ export default function SeasonDetailPage({ params }: { params: { id: string } })
                       phase={phase}
                       plan={plan}
                       practicesByWeek={practicesByWeek}
-                      seasonPracticeCount={seasonPractices.length}
                       collapsedPhases={collapsedPhases}
                       onToggleCollapse={toggleCollapse}
                       startPracticeNum={startNum}
