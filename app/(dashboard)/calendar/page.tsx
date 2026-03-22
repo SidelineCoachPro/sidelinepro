@@ -721,6 +721,143 @@ function ShareLinkModal({ token, url, onClose }: { token: string; url: string; o
   )
 }
 
+// ── Week View ─────────────────────────────────────────────────────────────────
+
+function WeekView({ weekStart, events, onDaySelect }: {
+  weekStart: Date
+  events: CalendarEvent[]
+  onDaySelect: (dateStr: string, evs: CalendarEvent[]) => void
+}) {
+  const today = todayStr()
+  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart); d.setDate(d.getDate() + i); return d
+  }), [weekStart])
+  const eventsByDate = useMemo(() => {
+    const map: Record<string, CalendarEvent[]> = {}
+    for (const ev of events) { if (!map[ev.date]) map[ev.date] = []; map[ev.date].push(ev) }
+    return map
+  }, [events])
+
+  return (
+    <div className="rounded-xl overflow-hidden" style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.07)' }}>
+      <div className="grid grid-cols-7">
+        {days.map((day, i) => {
+          const dateStr = dateToStr(day)
+          const isToday = dateStr === today
+          const dayEvs  = eventsByDate[dateStr] ?? []
+          return (
+            <div key={i} className="flex flex-col" style={{ borderRight: i < 6 ? '1px solid rgba(241,245,249,0.06)' : undefined, minHeight: 180 }}>
+              <div className="flex flex-col items-center py-3 pb-2" style={{ borderBottom: '1px solid rgba(241,245,249,0.06)' }}>
+                <span className="uppercase tracking-wider" style={{ color: 'rgba(241,245,249,0.35)', fontSize: 10 }}>{DAY_LABELS[i]}</span>
+                <span
+                  className="inline-flex items-center justify-center mt-1 font-bold leading-none"
+                  style={{
+                    width: 26, height: 26, borderRadius: '50%', fontSize: 13,
+                    backgroundColor: isToday ? '#F7620A' : 'transparent',
+                    color: isToday ? '#fff' : 'rgba(241,245,249,0.7)',
+                  }}
+                >
+                  {day.getDate()}
+                </span>
+              </div>
+              <div
+                className="flex flex-col gap-1 p-1 flex-1 cursor-pointer"
+                onClick={() => onDaySelect(dateStr, dayEvs)}
+              >
+                {dayEvs.map(ev => (
+                  <EventPill key={ev.id} event={ev} onClick={() => onDaySelect(dateStr, dayEvs)} />
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <div className="flex items-center gap-4 px-4 py-2.5" style={{ borderTop: '1px solid rgba(241,245,249,0.05)' }}>
+        {[{ color: EVENT_COLORS.game, label: 'Game' }, { color: EVENT_COLORS.practice, label: 'Practice' }, { color: EVENT_COLORS.other, label: 'Other' }].map(({ color, label }) => (
+          <div key={label} className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+            <span className="text-xs" style={{ color: 'rgba(241,245,249,0.3)' }}>{label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── List View ──────────────────────────────────────────────────────────────────
+
+function ListView({ year, month, events, onDaySelect }: {
+  year: number
+  month: number
+  events: CalendarEvent[]
+  onDaySelect: (dateStr: string, evs: CalendarEvent[]) => void
+}) {
+  const today = todayStr()
+  const grouped = useMemo(() => {
+    const map: Record<string, CalendarEvent[]> = {}
+    for (const ev of events) { if (!map[ev.date]) map[ev.date] = []; map[ev.date].push(ev) }
+    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b))
+  }, [events])
+
+  if (grouped.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 rounded-xl" style={{ border: '1px dashed rgba(241,245,249,0.1)' }}>
+        <p className="text-base font-semibold text-sp-text mb-1">No events in {MONTH_NAMES[month - 1]} {year}</p>
+        <p className="text-sm" style={{ color: 'rgba(241,245,249,0.4)' }}>Switch to Month view and add some events to get started.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-5">
+      {grouped.map(([dateStr, dayEvs]) => {
+        const isToday = dateStr === today
+        return (
+          <div key={dateStr}>
+            <div className="flex items-center gap-2 mb-2">
+              <span
+                className="text-sm font-bold px-2.5 py-1 rounded-lg"
+                style={{
+                  backgroundColor: isToday ? '#F7620A' : 'rgba(241,245,249,0.06)',
+                  color: isToday ? '#fff' : 'rgba(241,245,249,0.7)',
+                }}
+              >
+                {formatDateLong(dateStr)}
+              </span>
+            </div>
+            <div className="space-y-2">
+              {dayEvs.map(ev => (
+                <button
+                  key={ev.id}
+                  onClick={() => onDaySelect(dateStr, dayEvs)}
+                  className="w-full text-left rounded-xl px-4 py-3 transition-opacity hover:opacity-85"
+                  style={{ backgroundColor: `${ev.color}12`, border: `1px solid ${ev.color}30` }}
+                >
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: ev.color }} />
+                    <span className="text-xs font-bold uppercase tracking-wide" style={{ color: ev.color }}>
+                      {ev.type === 'game' ? 'Game' : ev.type === 'practice' ? 'Practice' : 'Event'}
+                    </span>
+                    {ev.time && (
+                      <span className="text-xs ml-auto" style={{ color: 'rgba(241,245,249,0.4)' }}>{formatHHMM(ev.time)}</span>
+                    )}
+                  </div>
+                  <p className="font-semibold text-sp-text text-sm">
+                    {ev.type === 'game' ? `vs ${ev.opponent}` : ev.title}
+                  </p>
+                  {ev.location && (
+                    <p className="text-xs mt-0.5" style={{ color: 'rgba(241,245,249,0.4)' }}>{ev.location}</p>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ── Inner Page (uses useSearchParams) ────────────────────────────────────────
 
 function CalendarPageInner() {
@@ -732,8 +869,34 @@ function CalendarPageInner() {
   const { data: tokenData } = useTeamToken(activeTeamId)
   const [showShare, setShowShare] = useState(false)
 
-  // Parse month from URL or default to current
+  // Parse view from URL ('month' | 'week' | 'list')
+  const view = useMemo(() => {
+    const v = searchParams.get('view')
+    return (v === 'week' || v === 'list') ? v : 'month'
+  }, [searchParams])
+
+  // Week start for week view (Sunday-anchored)
+  const weekStart = useMemo(() => {
+    const param = searchParams.get('week')
+    if (param) {
+      const d = new Date(param + 'T12:00:00')
+      if (!isNaN(d.getTime())) {
+        d.setHours(0, 0, 0, 0)
+        d.setDate(d.getDate() - d.getDay())
+        return d
+      }
+    }
+    const now = new Date()
+    now.setHours(0, 0, 0, 0)
+    now.setDate(now.getDate() - now.getDay())
+    return now
+  }, [searchParams])
+
+  // Parse month from URL or derive from weekStart
   const [year, month] = useMemo(() => {
+    if (view === 'week') {
+      return [weekStart.getFullYear(), weekStart.getMonth() + 1]
+    }
     const param = searchParams.get('month')  // "2025-03"
     if (param) {
       const [y, m] = param.split('-').map(Number)
@@ -741,7 +904,7 @@ function CalendarPageInner() {
     }
     const now = new Date()
     return [now.getFullYear(), now.getMonth() + 1]
-  }, [searchParams])
+  }, [searchParams, view, weekStart])
 
   const events = useCalendar(year, month)
 
@@ -764,16 +927,50 @@ function CalendarPageInner() {
   }, [year, month])
 
   function navMonth(delta: number) {
-    let m = month + delta, y = year
-    if (m < 1)  { m += 12; y-- }
-    if (m > 12) { m -= 12; y++ }
-    router.replace(`/calendar?month=${y}-${String(m).padStart(2, '0')}`)
+    if (view === 'week') {
+      const d = new Date(weekStart)
+      d.setDate(d.getDate() + delta * 7)
+      router.replace(`/calendar?view=week&week=${dateToStr(d)}`)
+    } else {
+      let m = month + delta, y = year
+      if (m < 1)  { m += 12; y-- }
+      if (m > 12) { m -= 12; y++ }
+      router.replace(`/calendar?view=${view}&month=${y}-${String(m).padStart(2, '0')}`)
+    }
   }
 
   function jumpToToday() {
-    const now = new Date()
-    router.replace(`/calendar?month=${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
+    if (view === 'week') {
+      const now = new Date()
+      now.setHours(0, 0, 0, 0)
+      now.setDate(now.getDate() - now.getDay())
+      router.replace(`/calendar?view=week&week=${dateToStr(now)}`)
+    } else {
+      const now = new Date()
+      router.replace(`/calendar?view=${view}&month=${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
+    }
   }
+
+  function switchView(v: 'month' | 'week' | 'list') {
+    if (v === 'week') {
+      const now = new Date()
+      now.setHours(0, 0, 0, 0)
+      now.setDate(now.getDate() - now.getDay())
+      router.replace(`/calendar?view=week&week=${dateToStr(now)}`)
+    } else {
+      router.replace(`/calendar?view=${v}&month=${year}-${String(month).padStart(2, '0')}`)
+    }
+  }
+
+  const weekTitle = useMemo(() => {
+    const end = new Date(weekStart)
+    end.setDate(end.getDate() + 6)
+    const sm = MONTH_NAMES[weekStart.getMonth()].slice(0, 3)
+    const em = MONTH_NAMES[end.getMonth()].slice(0, 3)
+    return weekStart.getMonth() === end.getMonth()
+      ? `${sm} ${weekStart.getDate()}–${end.getDate()}, ${weekStart.getFullYear()}`
+      : `${sm} ${weekStart.getDate()} – ${em} ${end.getDate()}, ${end.getFullYear()}`
+  }, [weekStart])
 
   function handleUnschedule(planId: string) {
     schedulePractice({ id: planId, scheduled_date: null }).then(() => {
@@ -793,10 +990,15 @@ function CalendarPageInner() {
     setTimeout(() => setToastMsg(''), 3000)
   }
 
-  const isCurrentMonth = (() => {
+  const isCurrentPeriod = useMemo(() => {
     const now = new Date()
+    if (view === 'week') {
+      const t = dateToStr(now)
+      const end = new Date(weekStart); end.setDate(end.getDate() + 6)
+      return dateToStr(weekStart) <= t && t <= dateToStr(end)
+    }
     return year === now.getFullYear() && month === now.getMonth() + 1
-  })()
+  }, [view, weekStart, year, month])
 
   return (
     <div>
@@ -816,7 +1018,7 @@ function CalendarPageInner() {
             ←
           </button>
           <span className={`text-lg font-bold text-sp-text min-w-[160px] text-center ${barlow.className}`} style={{ fontSize: 20 }}>
-            {MONTH_NAMES[month - 1]} {year}
+            {view === 'week' ? weekTitle : `${MONTH_NAMES[month - 1]} ${year}`}
           </span>
           <button
             onClick={() => navMonth(1)}
@@ -825,7 +1027,7 @@ function CalendarPageInner() {
           >
             →
           </button>
-          {!isCurrentMonth && (
+          {!isCurrentPeriod && (
             <button
               onClick={jumpToToday}
               className="px-3 py-1 text-xs font-semibold rounded-lg transition-opacity hover:opacity-75"
@@ -838,31 +1040,24 @@ function CalendarPageInner() {
 
         {/* Right: view options + add button */}
         <div className="flex items-center gap-2 sm:justify-end">
-          {/* View switcher (Month active, others disabled) */}
+          {/* View switcher */}
           <div className="flex items-center gap-1 p-1 rounded-lg" style={{ backgroundColor: 'rgba(241,245,249,0.04)', border: '1px solid rgba(241,245,249,0.07)' }}>
             {([
               { key: 'month', label: 'Month' },
               { key: 'week',  label: 'Week' },
               { key: 'list',  label: 'List' },
             ] as const).map(({ key, label }) => (
-              <div key={key} className="relative group">
-                <button
-                  disabled={key !== 'month'}
-                  className="px-3 py-1 rounded text-xs font-medium transition-all"
-                  style={{
-                    backgroundColor: key === 'month' ? '#F7620A' : 'transparent',
-                    color: key === 'month' ? '#fff' : 'rgba(241,245,249,0.25)',
-                    cursor: key !== 'month' ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  {label}
-                </button>
-                {key !== 'month' && (
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10" style={{ backgroundColor: '#141E2D', color: 'rgba(241,245,249,0.7)', border: '1px solid rgba(241,245,249,0.1)' }}>
-                    Coming soon
-                  </div>
-                )}
-              </div>
+              <button
+                key={key}
+                onClick={() => switchView(key)}
+                className="px-3 py-1 rounded text-xs font-medium transition-all"
+                style={{
+                  backgroundColor: view === key ? '#F7620A' : 'transparent',
+                  color: view === key ? '#fff' : 'rgba(241,245,249,0.5)',
+                }}
+              >
+                {label}
+              </button>
             ))}
           </div>
 
@@ -892,8 +1087,21 @@ function CalendarPageInner() {
         </div>
       )}
 
-      {/* Calendar grid or empty state */}
-      {events.length === 0 ? (
+      {/* Calendar content */}
+      {view === 'week' ? (
+        <WeekView
+          weekStart={weekStart}
+          events={events}
+          onDaySelect={(dateStr, evs) => setSelectedDay({ date: dateStr, events: evs })}
+        />
+      ) : view === 'list' ? (
+        <ListView
+          year={year}
+          month={month}
+          events={events}
+          onDaySelect={(dateStr, evs) => setSelectedDay({ date: dateStr, events: evs })}
+        />
+      ) : events.length === 0 ? (
         <EmptyMonth
           monthName={`${MONTH_NAMES[month - 1]} ${year}`}
           onAdd={type => setAddModal({ type })}
