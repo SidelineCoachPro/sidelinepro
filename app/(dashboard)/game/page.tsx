@@ -309,11 +309,17 @@ function GameCard({ game, onDelete, token, rsvpCounts }: {
           </p>
         )}
         {/* RSVP summary for upcoming games */}
-        {!isPast && rsvpCounts && (rsvpCounts.yes + rsvpCounts.no + rsvpCounts.maybe) > 0 && (
+        {!isPast && rsvpCounts && (
           <div className="flex items-center gap-2 mb-2.5">
-            {rsvpCounts.yes > 0 && <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(34,197,94,0.12)', color: '#22C55E' }}>{rsvpCounts.yes} ✓</span>}
-            {rsvpCounts.no > 0 && <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(239,68,68,0.12)', color: '#EF4444' }}>{rsvpCounts.no} ✗</span>}
-            {rsvpCounts.maybe > 0 && <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(245,183,49,0.12)', color: '#F5B731' }}>{rsvpCounts.maybe} ?</span>}
+            {(rsvpCounts.yes + rsvpCounts.no + rsvpCounts.maybe) === 0 ? (
+              <span className="text-xs" style={{ color: 'rgba(241,245,249,0.25)' }}>No RSVPs yet</span>
+            ) : (
+              <>
+                {rsvpCounts.yes > 0 && <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(34,197,94,0.12)', color: '#22C55E' }}>{rsvpCounts.yes} ✓</span>}
+                {rsvpCounts.no > 0 && <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(239,68,68,0.12)', color: '#EF4444' }}>{rsvpCounts.no} ✗</span>}
+                {rsvpCounts.maybe > 0 && <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(245,183,49,0.12)', color: '#F5B731' }}>{rsvpCounts.maybe} ?</span>}
+              </>
+            )}
           </div>
         )}
         <div className="flex items-center gap-2 flex-wrap">
