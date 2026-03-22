@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { Barlow_Condensed } from 'next/font/google'
 import {
   useSeasonPlan,
@@ -275,7 +274,6 @@ function WeekCard({
   seasonId,
   seasonStart,
   practiceNum,
-  totalPracticesInSeason,
 }: {
   weekNum: number
   wf: WeeklyFocus | null
@@ -283,7 +281,6 @@ function WeekCard({
   seasonId: string
   seasonStart: string
   practiceNum: number
-  totalPracticesInSeason: number
 }) {
   const isPast = isWeekPast(seasonStart, weekNum)
   const dateRange = formatWeekRange(seasonStart, weekNum)
@@ -443,7 +440,6 @@ function PhaseSection({
                 seasonId={plan.id}
                 seasonStart={plan.start_date}
                 practiceNum={num}
-                totalPracticesInSeason={seasonPracticeCount}
               />
             )
           })}
@@ -457,11 +453,9 @@ function PhaseSection({
 
 function Sidebar({
   plan,
-  practicesByWeek,
   totalPlanned,
 }: {
   plan: SeasonPlan
-  practicesByWeek: Record<number, PracticePlan[]>
   totalPlanned: number
 }) {
   const totalTarget = plan.total_weeks * plan.practices_per_week
@@ -585,7 +579,7 @@ function EmptyState({ plan }: { plan: SeasonPlan }) {
       <p className="text-4xl mb-3">📋</p>
       <p className="text-lg font-bold text-sp-text mb-1">No schedule yet</p>
       <p className="text-sm mb-6" style={{ color: 'rgba(241,245,249,0.4)' }}>
-        This season plan doesn't have a weekly schedule. Choose how you'd like to build it.
+        This season plan doesn&apos;t have a weekly schedule. Choose how you&apos;d like to build it.
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mx-auto">
         <Link
@@ -618,13 +612,11 @@ function EmptyState({ plan }: { plan: SeasonPlan }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function SeasonDetailPage({ params }: { params: { id: string } }) {
-  const router = useRouter()
   const { data: plan, isLoading } = useSeasonPlan(params.id)
   const { data: allPlans = [] } = usePracticePlans()
 
   const [collapsedPhases, setCollapsedPhases] = useState<Set<string>>(() => new Set())
   const [jumpWeek, setJumpWeek] = useState<string>('')
-  const weekRefs = useRef<Record<number, HTMLElement | null>>({})
 
   // Load collapsed state from localStorage
   useEffect(() => {
@@ -919,7 +911,6 @@ export default function SeasonDetailPage({ params }: { params: { id: string } })
           <div className="hidden lg:block flex-shrink-0 sticky top-6" style={{ width: 240 }}>
             <Sidebar
               plan={plan}
-              practicesByWeek={practicesByWeek}
               totalPlanned={seasonPractices.length}
             />
           </div>
