@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Barlow_Condensed } from 'next/font/google'
@@ -495,7 +495,7 @@ export default function GameDayPage() {
 
   // Fetch RSVP counts for upcoming games
   const [rsvpCountsMap, setRsvpCountsMap] = useState<Record<string, { yes: number; no: number; maybe: number }>>({})
-  useMemo(() => {
+  useEffect(() => {
     if (!tokenData?.token) return
     const upcomingIds = games.filter(g => daysUntil(g.scheduled_at) >= 0).map(g => g.id)
     if (upcomingIds.length === 0) return
