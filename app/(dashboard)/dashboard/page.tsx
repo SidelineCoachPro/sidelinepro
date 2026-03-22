@@ -452,7 +452,7 @@ export default function DashboardPage() {
           )}
           <h1
             className={`${barlow.className} text-sp-text`}
-            style={{ fontSize: 36, fontWeight: 900, lineHeight: 1.15 }}
+            style={{ fontSize: 'clamp(22px, 6vw, 36px)', fontWeight: 900, lineHeight: 1.15 }}
           >
             {greeting}
           </h1>

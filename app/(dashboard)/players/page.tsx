@@ -299,20 +299,22 @@ export default function PlayersPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ backgroundColor: 'rgba(241,245,249,0.04)', border: '1px solid rgba(241,245,249,0.07)' }}>
-        {TABS.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className="px-4 py-1.5 rounded-lg text-sm font-medium transition-all"
-            style={{
-              backgroundColor: tab === t.key ? '#F7620A' : 'transparent',
-              color: tab === t.key ? '#fff' : 'rgba(241,245,249,0.45)',
-            }}
-          >
-            {t.label}
-          </button>
-        ))}
+      <div className="overflow-x-auto mb-5 -mx-1 px-1">
+        <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ backgroundColor: 'rgba(241,245,249,0.04)', border: '1px solid rgba(241,245,249,0.07)' }}>
+          {TABS.map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className="whitespace-nowrap px-4 py-1.5 rounded-lg text-sm font-medium transition-all"
+              style={{
+                backgroundColor: tab === t.key ? '#F7620A' : 'transparent',
+                color: tab === t.key ? '#fff' : 'rgba(241,245,249,0.45)',
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Search (roster only) */}
@@ -322,8 +324,7 @@ export default function PlayersPage() {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Search by name, position, or jersey..."
-          className="sp-input mb-5"
-          style={{ maxWidth: 380 }}
+          className="sp-input mb-5 w-full max-w-[380px]"
         />
       )}
 

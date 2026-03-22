@@ -476,7 +476,7 @@ export default function NavBar({ email }: { email: string }) {
             {/* Mobile hamburger */}
             <div className="flex-1 md:hidden" />
             <button
-              className="md:hidden p-1.5 rounded flex-shrink-0"
+              className="md:hidden p-2.5 rounded flex-shrink-0"
               onClick={() => setMobileOpen(!mobileOpen)}
               style={{ color: 'rgba(241,245,249,0.6)' }}
               aria-label="Toggle menu"

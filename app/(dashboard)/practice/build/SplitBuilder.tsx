@@ -209,6 +209,7 @@ export default function SplitBuilder({
   const [items, setItems] = useState<PlanDrill[]>(initialDrills)
   const [focusAreas, setFocusAreas] = useState<string[]>([])
   const [activeTab, setActiveTab] = useState<LibTab>('drills')
+  const [mobilePanel, setMobilePanel] = useState<'plan' | 'library'>('plan')
   const sensors = useSensors(useSensor(PointerSensor))
 
   const totalMins = items.reduce((s, d) => s + d.durationMins, 0)
@@ -237,9 +238,28 @@ export default function SplitBuilder({
   ]
 
   return (
-    <div className="flex gap-0 h-full" style={{ minHeight: 'calc(100vh - 200px)' }}>
-      {/* ── Left: plan editor (55%) ─────────────────────────────── */}
-      <div className="flex flex-col" style={{ width: '55%', paddingRight: 20 }}>
+    <div className="flex flex-col md:flex-row h-full" style={{ minHeight: 'calc(100vh - 200px)' }}>
+
+      {/* ── Mobile panel switcher ────────────────────────────────── */}
+      <div className="flex md:hidden rounded-xl overflow-hidden mb-4 flex-shrink-0" style={{ border: '1px solid rgba(241,245,249,0.1)' }}>
+        <button
+          onClick={() => setMobilePanel('plan')}
+          className="flex-1 py-2.5 text-sm font-semibold transition-colors"
+          style={{ backgroundColor: mobilePanel === 'plan' ? '#F7620A' : 'rgba(241,245,249,0.04)', color: mobilePanel === 'plan' ? '#fff' : 'rgba(241,245,249,0.45)' }}
+        >
+          📋 Plan
+        </button>
+        <button
+          onClick={() => setMobilePanel('library')}
+          className="flex-1 py-2.5 text-sm font-semibold transition-colors"
+          style={{ backgroundColor: mobilePanel === 'library' ? '#F7620A' : 'rgba(241,245,249,0.04)', color: mobilePanel === 'library' ? '#fff' : 'rgba(241,245,249,0.45)' }}
+        >
+          📚 Library
+        </button>
+      </div>
+
+      {/* ── Left: plan editor ───────────────────────────────────── */}
+      <div className={`${mobilePanel === 'plan' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[55%] md:pr-5`}>
         {/* breadcrumb */}
         <div className="flex items-center gap-2 mb-4">
           <button onClick={onBack} className="text-sm hover:opacity-70 transition-opacity" style={{ color: 'rgba(241,245,249,0.4)' }}>
@@ -353,10 +373,10 @@ export default function SplitBuilder({
         </div>
       </div>
 
-      {/* ── Right: library (45%) ────────────────────────────────── */}
+      {/* ── Right: library ──────────────────────────────────────── */}
       <div
-        className="flex flex-col flex-shrink-0 rounded-xl overflow-hidden"
-        style={{ width: 'calc(45% - 20px)', border: '1px solid rgba(241,245,249,0.07)', backgroundColor: '#0A1019' }}
+        className={`${mobilePanel === 'library' ? 'flex' : 'hidden'} md:flex flex-col flex-shrink-0 rounded-xl overflow-hidden w-full md:flex-1`}
+        style={{ border: '1px solid rgba(241,245,249,0.07)', backgroundColor: '#0A1019' }}
       >
         {/* tab bar */}
         <div className="flex flex-shrink-0" style={{ borderBottom: '1px solid rgba(241,245,249,0.07)' }}>

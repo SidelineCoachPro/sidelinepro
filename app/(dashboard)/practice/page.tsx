@@ -325,7 +325,7 @@ function PracticeOverviewInner() {
     <div>
       <PracticeSubNav />
 
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex items-start justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-sp-text">Practice</h1>
           <p className="text-sm mt-1" style={{ color: 'rgba(241,245,249,0.4)' }}>
@@ -334,22 +334,24 @@ function PracticeOverviewInner() {
         </div>
         <Link
           href="/practice/build/new"
-          className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-opacity hover:opacity-85"
+          className="flex-shrink-0 flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-opacity hover:opacity-85"
           style={{ backgroundColor: '#F7620A', color: '#fff' }}
         >
-          + New Practice
+          + New
         </Link>
       </div>
 
       <div className="flex gap-6">
-        {/* Left: mini calendar */}
-        <MiniCalendar
-          selectedMonday={selectedMonday}
-          onSelectWeek={setWeek}
-          markedDates={markedDates}
-        />
+        {/* Left: mini calendar — hidden on mobile */}
+        <div className="hidden md:block">
+          <MiniCalendar
+            selectedMonday={selectedMonday}
+            onSelectWeek={setWeek}
+            markedDates={markedDates}
+          />
+        </div>
 
-        {/* Right: week view */}
+        {/* Right: week view — full width on mobile */}
         <div className="flex-1 min-w-0">
           {/* week nav */}
           <div className="flex items-center justify-between mb-4">
