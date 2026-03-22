@@ -64,8 +64,8 @@ function DetailModal({ detail, onClose }: { detail: DetailItem; onClose: () => v
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-lg hover:opacity-60 transition-opacity"
-          style={{ color: 'rgba(241,245,249,0.4)' }}
+          className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full hover:opacity-60 transition-opacity"
+          style={{ color: 'rgba(241,245,249,0.5)', backgroundColor: 'rgba(241,245,249,0.07)' }}
         >
           ✕
         </button>
@@ -169,8 +169,8 @@ function PlayDetail({ play }: { play: Play }) {
           ballStartY={play.ballStartY}
           ballEndX={play.ballEndX}
           ballEndY={play.ballEndY}
-          width={320}
-          height={220}
+          width={280}
+          height={193}
         />
       </div>
       <p className="text-sm mb-4" style={{ color: 'rgba(241,245,249,0.7)' }}>{play.description}</p>
@@ -265,8 +265,8 @@ function SortableItem({
           type="number" min={1} max={60}
           value={item.durationMins}
           onChange={e => onDurationChange(Math.max(1, parseInt(e.target.value) || 1))}
-          className="w-10 text-center text-sm rounded-md"
-          style={{ backgroundColor: 'rgba(241,245,249,0.07)', border: '1px solid rgba(241,245,249,0.1)', color: '#F1F5F9', padding: '3px 4px', outline: 'none' }}
+          className="w-12 text-center text-sm rounded-md"
+          style={{ backgroundColor: 'rgba(241,245,249,0.07)', border: '1px solid rgba(241,245,249,0.1)', color: '#F1F5F9', padding: '5px 4px', outline: 'none' }}
         />
         <span className="text-xs" style={{ color: 'rgba(241,245,249,0.3)' }}>m</span>
       </div>
@@ -484,7 +484,7 @@ export default function SplitBuilder({
         />
 
         {/* date + duration row */}
-        <div className="flex items-center gap-3 mb-3">
+        <div className="flex flex-wrap items-center gap-3 mb-3">
           <div className="flex items-center gap-2">
             <span className="text-xs" style={{ color: 'rgba(241,245,249,0.4)' }}>Date</span>
             <input
@@ -525,8 +525,11 @@ export default function SplitBuilder({
         >
           {items.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16">
-              <p className="text-sm" style={{ color: 'rgba(241,245,249,0.25)' }}>
+              <p className="text-sm hidden md:block" style={{ color: 'rgba(241,245,249,0.25)' }}>
                 Add drills, games, or plays from the library →
+              </p>
+              <p className="text-sm md:hidden" style={{ color: 'rgba(241,245,249,0.25)' }}>
+                Tap Library above to add drills, games, or plays
               </p>
             </div>
           ) : (

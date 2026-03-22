@@ -213,7 +213,7 @@ function DayRow({
               <span style={{ color: '#EF4444' }}>🏀</span>
               <span className="font-semibold text-sp-text">vs. {g.opponent}</span>
               {g.location && (
-                <span className="text-xs" style={{ color: 'rgba(241,245,249,0.4)' }}>@ {g.location}</span>
+                <span className="hidden sm:inline text-xs" style={{ color: 'rgba(241,245,249,0.4)' }}>@ {g.location}</span>
               )}
             </div>
           ))}
@@ -226,7 +226,7 @@ function DayRow({
                 style={{ backgroundColor: 'rgba(241,245,249,0.04)' }}
               >
                 <div>
-                  <p className="font-medium text-sp-text">{plan.name}</p>
+                  <p className="font-medium text-sp-text truncate max-w-[200px]">{plan.name}</p>
                   <p className="text-xs" style={{ color: 'rgba(241,245,249,0.35)' }}>
                     {plan.duration_mins}min
                     {plan.focus_areas?.length ? ` · ${plan.focus_areas[0]}` : ''}
@@ -416,7 +416,7 @@ function PracticeOverviewInner() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setWeek(addDays(selectedMonday, -7))}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-lg hover:opacity-70 transition-opacity"
+                className="w-10 h-10 flex items-center justify-center rounded-lg text-lg hover:opacity-70 transition-opacity"
                 style={{ color: 'rgba(241,245,249,0.45)', border: '1px solid rgba(241,245,249,0.1)' }}
               >
                 ‹
@@ -424,7 +424,7 @@ function PracticeOverviewInner() {
               <span className="text-sm font-semibold text-sp-text">{weekLabel}</span>
               <button
                 onClick={() => setWeek(addDays(selectedMonday, 7))}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-lg hover:opacity-70 transition-opacity"
+                className="w-10 h-10 flex items-center justify-center rounded-lg text-lg hover:opacity-70 transition-opacity"
                 style={{ color: 'rgba(241,245,249,0.45)', border: '1px solid rgba(241,245,249,0.1)' }}
               >
                 ›
@@ -432,7 +432,7 @@ function PracticeOverviewInner() {
             </div>
             <button
               onClick={() => setWeek(mondayOf(today))}
-              className="text-xs px-3 py-1.5 rounded-lg transition-opacity hover:opacity-70"
+              className="text-xs px-4 py-2.5 rounded-lg transition-opacity hover:opacity-70"
               style={{ color: 'rgba(241,245,249,0.4)', border: '1px solid rgba(241,245,249,0.08)' }}
             >
               This Week
@@ -464,7 +464,7 @@ function PracticeOverviewInner() {
                     className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all hover:opacity-85"
                     style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.07)' }}
                   >
-                    <span className="text-sp-text font-medium">{plan.name}</span>
+                    <span className="text-sp-text font-medium truncate max-w-[180px]">{plan.name}</span>
                     <span className="text-xs" style={{ color: 'rgba(241,245,249,0.35)' }}>{plan.duration_mins}min</span>
                   </Link>
                 ))}
