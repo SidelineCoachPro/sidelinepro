@@ -1174,18 +1174,18 @@ function SeasonPlanCard({ plan, practiceCount, team, onDelete, onEdit }: { plan:
           Edit
         </button>
         <Link
-          href={`/practice/planner`}
+          href={`/practice/season/${plan.id}`}
           className="flex-1 py-2 text-center text-xs font-bold rounded-lg transition-opacity hover:opacity-80"
-          style={{ backgroundColor: 'rgba(241,245,249,0.06)', color: 'rgba(241,245,249,0.6)', border: '1px solid rgba(241,245,249,0.1)' }}
+          style={{ backgroundColor: 'rgba(247,98,10,0.12)', color: '#F7620A', border: '1px solid rgba(247,98,10,0.25)' }}
         >
-          View Practices
+          View Season →
         </Link>
         <Link
           href="/calendar"
-          className="flex-1 py-2 text-center text-xs font-bold rounded-lg transition-opacity hover:opacity-80"
-          style={{ backgroundColor: 'rgba(247,98,10,0.1)', color: '#F7620A', border: '1px solid rgba(247,98,10,0.2)' }}
+          className="py-2 px-3 text-center text-xs font-bold rounded-lg transition-opacity hover:opacity-80"
+          style={{ backgroundColor: 'rgba(241,245,249,0.05)', color: 'rgba(241,245,249,0.4)', border: '1px solid rgba(241,245,249,0.08)' }}
         >
-          Calendar
+          Cal
         </Link>
       </div>
       </div>

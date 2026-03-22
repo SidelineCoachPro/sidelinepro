@@ -318,6 +318,22 @@ function PracticeOverviewInner() {
   const unscheduled = plans.filter(p => !p.scheduled_date)
   const activeSeason = seasons.find(s => s.status === 'active') ?? seasons[0]
 
+  // Season strip: current week + progress
+  const seasonProgress = useMemo(() => {
+    if (!activeSeason) return null
+    const today = new Date()
+    const start = new Date(activeSeason.start_date + 'T12:00:00')
+    const diff = Math.floor((today.getTime() - start.getTime()) / 86400000)
+    if (diff < 0) return null
+    const currentWeek = Math.min(Math.floor(diff / 7) + 1, activeSeason.total_weeks)
+    const pct = Math.round((currentWeek / activeSeason.total_weeks) * 100)
+    const currentPhase = activeSeason.phases.find(
+      p => currentWeek >= p.startWeek && currentWeek <= p.endWeek
+    )
+    const currentWf = activeSeason.weekly_focus_rotation.find(w => w.week === currentWeek)
+    return { currentWeek, pct, currentPhase, currentWf }
+  }, [activeSeason])
+
   const weekEnd = addDays(selectedMonday, 6)
   const weekLabel = `${selectedMonday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
 
@@ -340,6 +356,48 @@ function PracticeOverviewInner() {
           + New
         </Link>
       </div>
+
+      {/* Season strip */}
+      {activeSeason && seasonProgress && (
+        <div
+          className="rounded-xl p-4 mb-5"
+          style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.07)' }}
+        >
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <span className="text-sm font-semibold text-sp-text truncate">{activeSeason.name}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(34,197,94,0.1)', color: '#22C55E' }}>Week {seasonProgress.currentWeek} of {activeSeason.total_weeks}</span>
+                {seasonProgress.currentPhase && (
+                  <span className="text-xs" style={{ color: 'rgba(241,245,249,0.4)' }}>{seasonProgress.currentPhase.name}</span>
+                )}
+                {seasonProgress.currentWf?.primaryFocus && (
+                  <span className="text-xs px-2 py-0.5 rounded-full" style={{
+                    backgroundColor: `${({ 'Ball Handling': '#F7620A', Shooting: '#38BDF8', Passing: '#F5B731', Defense: '#22C55E', Conditioning: '#E879F9', 'Team Play': '#8B5CF6' } as Record<string, string>)[seasonProgress.currentWf.primaryFocus] ?? '#6B7A99'}20`,
+                    color: ({ 'Ball Handling': '#F7620A', Shooting: '#38BDF8', Passing: '#F5B731', Defense: '#22C55E', Conditioning: '#E879F9', 'Team Play': '#8B5CF6' } as Record<string, string>)[seasonProgress.currentWf.primaryFocus] ?? '#6B7A99',
+                  }}>
+                    {seasonProgress.currentWf.primaryFocus}
+                  </span>
+                )}
+              </div>
+              <div className="h-1.5 rounded-full overflow-hidden mt-2" style={{ backgroundColor: 'rgba(241,245,249,0.06)' }}>
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{ width: `${seasonProgress.pct}%`, backgroundColor: '#F7620A' }}
+                />
+              </div>
+              <p className="text-xs mt-1" style={{ color: 'rgba(241,245,249,0.3)' }}>{seasonProgress.pct}% through season</p>
+            </div>
+            <Link
+              href={`/practice/season/${activeSeason.id}`}
+              className="text-xs px-3 py-2 rounded-lg font-semibold transition-opacity hover:opacity-80 flex-shrink-0"
+              style={{ backgroundColor: 'rgba(247,98,10,0.12)', color: '#F7620A', border: '1px solid rgba(247,98,10,0.25)' }}
+            >
+              View Full Season →
+            </Link>
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-6">
         {/* Left: mini calendar — hidden on mobile */}
