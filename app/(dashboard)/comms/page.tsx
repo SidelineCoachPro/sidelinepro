@@ -13,6 +13,8 @@ import {
   useDeleteAnnouncement,
   type Announcement,
 } from '@/hooks/useAnnouncements'
+import { useTeam } from '@/lib/teamContext'
+import { useTeamToken } from '@/hooks/useTeamToken'
 
 type Channel = 'sms' | 'email' | 'whatsapp'
 
@@ -710,9 +712,21 @@ function AnnouncementsSection() {
 export default function CommsPage() {
   const searchParams = useSearchParams()
   const [activeTemplate, setActiveTemplate] = useState<Template | null>(null)
+  const [showShare, setShowShare] = useState(false)
+  const [copied, setCopied] = useState(false)
 
+  const { activeTeamId } = useTeam()
+  const { data: tokenData } = useTeamToken(activeTeamId)
   const { data: players = [] }  = usePlayers()
   const { data: allContacts = [] } = useParentContacts()
+
+  function copyLink() {
+    if (!tokenData?.url) return
+    navigator.clipboard.writeText(tokenData.url).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
 
   const playerNames: Record<string, string> = useMemo(() => {
     return Object.fromEntries(
@@ -737,12 +751,48 @@ export default function CommsPage() {
   return (
     <div className="max-w-3xl mx-auto">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-sp-text mb-1">Parent Communications</h1>
-        <p className="text-sm" style={{ color: 'rgba(241,245,249,0.45)' }}>
-          One tap to notify every parent. Opens in your SMS, Email, or WhatsApp.
-        </p>
+      <div className="flex items-start justify-between gap-3 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-sp-text mb-1">Parent Communications</h1>
+          <p className="text-sm" style={{ color: 'rgba(241,245,249,0.45)' }}>
+            One tap to notify every parent. Opens in your SMS, Email, or WhatsApp.
+          </p>
+        </div>
+        {tokenData && (
+          <button
+            onClick={() => setShowShare(true)}
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-lg transition-opacity hover:opacity-85"
+            style={{ backgroundColor: 'rgba(241,245,249,0.07)', color: 'rgba(241,245,249,0.6)', border: '1px solid rgba(241,245,249,0.1)' }}
+          >
+            🔗 Parent Link
+          </button>
+        )}
       </div>
+
+      {/* Share modal */}
+      {showShare && tokenData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }} onClick={e => { if (e.target === e.currentTarget) setShowShare(false) }}>
+          <div className="w-full max-w-md rounded-xl overflow-hidden" style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.1)' }}>
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(241,245,249,0.07)' }}>
+              <h2 className="text-base font-semibold text-sp-text">Parent Link</h2>
+              <button onClick={() => setShowShare(false)} style={{ color: 'rgba(241,245,249,0.4)' }} className="hover:opacity-60 text-lg leading-none">✕</button>
+            </div>
+            <div className="px-5 py-5 space-y-4">
+              <p className="text-sm" style={{ color: 'rgba(241,245,249,0.5)' }}>
+                Share this link with parents so they can view the schedule, RSVP to games, and see announcements — no login required.
+              </p>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 px-3 py-2.5 rounded-lg text-sm truncate font-mono" style={{ backgroundColor: 'rgba(241,245,249,0.05)', color: 'rgba(241,245,249,0.7)', border: '1px solid rgba(241,245,249,0.1)' }}>
+                  {tokenData.url}
+                </div>
+                <button onClick={copyLink} className="px-4 py-2.5 text-sm font-semibold rounded-lg flex-shrink-0 transition-all" style={{ backgroundColor: copied ? 'rgba(34,197,94,0.15)' : 'rgba(247,98,10,0.15)', color: copied ? '#22C55E' : '#F7620A', border: `1px solid ${copied ? 'rgba(34,197,94,0.3)' : 'rgba(247,98,10,0.3)'}` }}>
+                  {copied ? '✓ Copied' : 'Copy'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Contacts summary bar */}
       {players.length > 0 && (

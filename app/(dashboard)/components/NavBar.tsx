@@ -45,6 +45,11 @@ const navLinks = [
       <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
     </svg>
   )},
+  { href: '/parents',  label: 'Parents', icon: (
+    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+    </svg>
+  )},
 ]
 
 const PRESET_EMOJIS = ['🏀', '⚽', '🏈', '⚾', '🏐', '🎾', '🏒', '🥊', '🏆', '🔥', '⭐', '💪', '🦁', '🐯', '🦅', '🐻']
