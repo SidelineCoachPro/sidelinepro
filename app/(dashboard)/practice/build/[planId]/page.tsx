@@ -1,13 +1,12 @@
 'use client'
 
-import { use } from 'react'
 import { useRouter } from 'next/navigation'
 import PracticeSubNav from '../../components/PracticeSubNav'
 import SplitBuilder from '../SplitBuilder'
 import { usePracticePlan, useUpdatePracticePlan, type PlanDrill } from '@/hooks/usePracticePlans'
 
-export default function EditPracticePage({ params }: { params: Promise<{ planId: string }> }) {
-  const { planId } = use(params)
+export default function EditPracticePage({ params }: { params: { planId: string } }) {
+  const { planId } = params
   const router = useRouter()
   const { data: plan, isLoading } = usePracticePlan(planId)
   const updatePlan = useUpdatePracticePlan()
@@ -54,7 +53,7 @@ export default function EditPracticePage({ params }: { params: Promise<{ planId:
       <SplitBuilder
         initialName={plan.name}
         initialDate={plan.scheduled_date}
-        initialDrills={plan.drills}
+        initialDrills={plan.drills.map(d => ({ ...d, uid: d.uid || crypto.randomUUID() }))}
         isSaving={updatePlan.isPending}
         savedPlanId={planId}
         onSave={handleSave}
