@@ -234,7 +234,7 @@ function DayRow({
                 </div>
               </Link>
               <Link
-                href={`/practice/run?planId=${plan.id}`}
+                href={`/practice/run?id=${plan.id}`}
                 className="px-3 py-3 text-xs font-bold transition-opacity hover:opacity-85"
                 style={{ backgroundColor: 'rgba(34,197,94,0.15)', color: '#22C55E' }}
                 title="Run practice"

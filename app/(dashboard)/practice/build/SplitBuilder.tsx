@@ -9,9 +9,10 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { type PlanDrill } from '@/hooks/usePracticePlans'
-import { drills, CATEGORY_COLORS, CATEGORY_LABELS } from '@/data/drills'
-import { practiceGames, GAME_CATEGORY_COLORS } from '@/data/practiceGames'
-import { PLAYS, PLAY_CATEGORY_COLORS, PLAY_CATEGORY_LABELS } from '@/data/plays'
+import { drills, type Drill, CATEGORY_COLORS, CATEGORY_LABELS } from '@/data/drills'
+import { practiceGames, type PracticeGame, GAME_CATEGORY_COLORS } from '@/data/practiceGames'
+import { PLAYS, type Play, PLAY_CATEGORY_COLORS, PLAY_CATEGORY_LABELS } from '@/data/plays'
+import PlayDiagram from '@/components/plays/PlayDiagram'
 
 /* ── icons ─────────────────────────────────────────────────────────────────── */
 function GripIcon() {
@@ -24,15 +25,211 @@ function GripIcon() {
   )
 }
 
+/* ── Detail lookup helper ───────────────────────────────────────────────────── */
+type DetailItem =
+  | { type: 'drill'; data: Drill }
+  | { type: 'game'; data: PracticeGame }
+  | { type: 'play'; data: Play }
+  | null
+
+function lookupDetail(drillId: string): DetailItem {
+  if (drillId.startsWith('play-')) {
+    const id = drillId.slice(5)
+    const p = PLAYS.find(x => x.id === id)
+    return p ? { type: 'play', data: p } : null
+  }
+  if (drillId.startsWith('game-')) {
+    const id = drillId.slice(5)
+    const g = practiceGames.find(x => x.id === id)
+    return g ? { type: 'game', data: g } : null
+  }
+  const d = drills.find(x => x.id === drillId)
+  return d ? { type: 'drill', data: d } : null
+}
+
+/* ── Detail Modal ────────────────────────────────────────────────────────────── */
+function DetailModal({ detail, onClose }: { detail: DetailItem; onClose: () => void }) {
+  if (!detail) return null
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl p-6"
+        style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.12)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-lg hover:opacity-60 transition-opacity"
+          style={{ color: 'rgba(241,245,249,0.4)' }}
+        >
+          ✕
+        </button>
+
+        {detail.type === 'drill' && (
+          <DrillDetail drill={detail.data} />
+        )}
+        {detail.type === 'game' && (
+          <GameDetail game={detail.data} />
+        )}
+        {detail.type === 'play' && (
+          <PlayDetail play={detail.data} />
+        )}
+      </div>
+    </div>
+  )
+}
+
+function DrillDetail({ drill }: { drill: Drill }) {
+  return (
+    <>
+      <div className="flex items-start gap-3 mb-4 pr-8">
+        <div className="w-3 h-3 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: drill.categoryColor }} />
+        <div>
+          <h2 className="text-lg font-bold text-sp-text">{drill.name}</h2>
+          <div className="flex flex-wrap gap-2 mt-1">
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: `${drill.categoryColor}20`, color: drill.categoryColor }}>{CATEGORY_LABELS[drill.category] ?? drill.category}</span>
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(241,245,249,0.07)', color: 'rgba(241,245,249,0.5)' }}>{drill.level}</span>
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(241,245,249,0.07)', color: 'rgba(241,245,249,0.5)' }}>{drill.durationMins} min</span>
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(241,245,249,0.07)', color: 'rgba(241,245,249,0.5)' }}>{drill.playersNeeded}</span>
+          </div>
+        </div>
+      </div>
+      <p className="text-sm mb-4" style={{ color: 'rgba(241,245,249,0.7)' }}>{drill.description}</p>
+      {drill.setup && (
+        <Section label="Setup" text={drill.setup} />
+      )}
+      {drill.instructions && (
+        <Section label="Instructions" text={drill.instructions} />
+      )}
+      {drill.cues.length > 0 && (
+        <BulletSection label="Coaching Cues" items={drill.cues} color={drill.categoryColor} />
+      )}
+      {drill.progression && (
+        <Section label="Progression" text={drill.progression} />
+      )}
+    </>
+  )
+}
+
+function GameDetail({ game }: { game: PracticeGame }) {
+  const color = GAME_CATEGORY_COLORS[game.category] ?? '#6B7280'
+  return (
+    <>
+      <div className="flex items-start gap-3 mb-4 pr-8">
+        <div className="w-3 h-3 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: color }} />
+        <div>
+          <span className="text-xs px-1.5 py-0.5 rounded font-bold mb-1 inline-block" style={{ backgroundColor: 'rgba(14,207,176,0.15)', color: '#0ECFB0' }}>GAME</span>
+          <h2 className="text-lg font-bold text-sp-text">{game.name}</h2>
+          <div className="flex flex-wrap gap-2 mt-1">
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: `${color}20`, color }}>{game.category}</span>
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(241,245,249,0.07)', color: 'rgba(241,245,249,0.5)' }}>{game.energyLevel} energy</span>
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(241,245,249,0.07)', color: 'rgba(241,245,249,0.5)' }}>{game.durationMins} min</span>
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(241,245,249,0.07)', color: 'rgba(241,245,249,0.5)' }}>{game.playersMin}–{game.playersMax} players</span>
+          </div>
+        </div>
+      </div>
+      <p className="text-sm mb-4" style={{ color: 'rgba(241,245,249,0.7)' }}>{game.description}</p>
+      <Section label="Setup" text={game.setup} />
+      <Section label="How to Play" text={game.howToPlay} />
+      {game.coachingTips.length > 0 && (
+        <BulletSection label="Coaching Tips" items={game.coachingTips} color={color} />
+      )}
+      {game.variations && game.variations.length > 0 && (
+        <BulletSection label="Variations" items={game.variations} color="#6B7A99" />
+      )}
+    </>
+  )
+}
+
+function PlayDetail({ play }: { play: Play }) {
+  const diffLabel: Record<string, string> = { beg: 'Beginner', int: 'Intermediate', adv: 'Advanced' }
+  return (
+    <>
+      <div className="flex items-start gap-3 mb-4 pr-8">
+        <div className="w-3 h-3 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: play.categoryColor }} />
+        <div>
+          <span className="text-xs px-1.5 py-0.5 rounded font-bold mb-1 inline-block" style={{ backgroundColor: 'rgba(58,134,255,0.15)', color: '#3A86FF' }}>PLAY</span>
+          <h2 className="text-lg font-bold text-sp-text">{play.name}</h2>
+          <div className="flex flex-wrap gap-2 mt-1">
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: `${play.categoryColor}20`, color: play.categoryColor }}>{PLAY_CATEGORY_LABELS[play.category]}</span>
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(241,245,249,0.07)', color: 'rgba(241,245,249,0.5)' }}>{diffLabel[play.difficulty] ?? play.difficulty}</span>
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(241,245,249,0.07)', color: 'rgba(241,245,249,0.5)' }}>{play.suggestedDurationMins} min</span>
+          </div>
+        </div>
+      </div>
+      <div className="rounded-xl overflow-hidden mb-4" style={{ backgroundColor: '#0A1019', border: '1px solid rgba(241,245,249,0.07)' }}>
+        <PlayDiagram
+          agents={play.agents}
+          ballStartX={play.ballStartX}
+          ballStartY={play.ballStartY}
+          ballEndX={play.ballEndX}
+          ballEndY={play.ballEndY}
+          width={320}
+          height={220}
+        />
+      </div>
+      <p className="text-sm mb-4" style={{ color: 'rgba(241,245,249,0.7)' }}>{play.description}</p>
+      {play.steps.length > 0 && (
+        <div className="mb-4">
+          <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(241,245,249,0.3)' }}>Steps</p>
+          <div className="space-y-1.5">
+            {play.steps.map(s => (
+              <div key={s.step} className="flex gap-2.5 text-sm">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: `${play.categoryColor}25`, color: play.categoryColor }}>{s.step}</span>
+                <span style={{ color: 'rgba(241,245,249,0.7)' }}>{s.description}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {play.teachingKeys.length > 0 && (
+        <BulletSection label="Teaching Keys" items={play.teachingKeys} color={play.categoryColor} />
+      )}
+    </>
+  )
+}
+
+function Section({ label, text }: { label: string; text: string }) {
+  return (
+    <div className="mb-4">
+      <p className="text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'rgba(241,245,249,0.3)' }}>{label}</p>
+      <p className="text-sm" style={{ color: 'rgba(241,245,249,0.65)' }}>{text}</p>
+    </div>
+  )
+}
+
+function BulletSection({ label, items, color }: { label: string; items: string[]; color: string }) {
+  return (
+    <div className="mb-4">
+      <p className="text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'rgba(241,245,249,0.3)' }}>{label}</p>
+      <ul className="space-y-1">
+        {items.map((item, i) => (
+          <li key={i} className="flex gap-2 text-sm">
+            <span className="flex-shrink-0 mt-1 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
+            <span style={{ color: 'rgba(241,245,249,0.65)' }}>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 /* ── SortableItem ───────────────────────────────────────────────────────────── */
 function SortableItem({
   item,
   onRemove,
   onDurationChange,
+  onInfo,
 }: {
   item: PlanDrill
   onRemove: () => void
   onDurationChange: (m: number) => void
+  onInfo: () => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: item.uid })
@@ -48,7 +245,7 @@ function SortableItem({
       <button {...listeners} className="cursor-grab active:cursor-grabbing flex-shrink-0" style={{ color: 'rgba(241,245,249,0.2)', touchAction: 'none' }}>
         <GripIcon />
       </button>
-      <div className="flex-1 min-w-0">
+      <button onClick={onInfo} className="flex-1 min-w-0 text-left group" title="View details">
         <div className="flex items-center gap-1.5">
           {item.drillId?.startsWith('game-') && (
             <span className="text-xs px-1 py-0.5 rounded font-bold" style={{ backgroundColor: 'rgba(14,207,176,0.15)', color: '#0ECFB0' }}>GAME</span>
@@ -56,12 +253,13 @@ function SortableItem({
           {item.drillId?.startsWith('play-') && (
             <span className="text-xs px-1 py-0.5 rounded font-bold" style={{ backgroundColor: 'rgba(58,134,255,0.15)', color: '#3A86FF' }}>PLAY</span>
           )}
-          <span className="text-sm font-medium text-sp-text truncate">{item.name}</span>
+          <span className="text-sm font-medium text-sp-text truncate group-hover:text-orange-400 transition-colors">{item.name}</span>
+          <span className="text-xs opacity-0 group-hover:opacity-60 transition-opacity flex-shrink-0" style={{ color: '#F7620A' }}>ℹ</span>
         </div>
         <span className="text-xs" style={{ color: 'rgba(241,245,249,0.35)' }}>
           {CATEGORY_LABELS[item.category] ?? item.category}
         </span>
-      </div>
+      </button>
       <div className="flex items-center gap-1 flex-shrink-0">
         <input
           type="number" min={1} max={60}
@@ -80,7 +278,7 @@ function SortableItem({
 /* ── Library tabs ───────────────────────────────────────────────────────────── */
 type LibTab = 'drills' | 'games' | 'plays' | 'ai'
 
-function DrillsTab({ onAdd }: { onAdd: (item: PlanDrill) => void }) {
+function DrillsTab({ onAdd, onInfo }: { onAdd: (item: PlanDrill) => void; onInfo: (d: DetailItem) => void }) {
   const [search, setSearch] = useState('')
   const [cat, setCat] = useState('all')
   const cats = [
@@ -110,15 +308,17 @@ function DrillsTab({ onAdd }: { onAdd: (item: PlanDrill) => void }) {
       </div>
       <div className="flex-1 overflow-y-auto space-y-1">
         {filtered.map(d => (
-          <button key={d.id} onClick={() => onAdd({ uid: crypto.randomUUID(), drillId: d.id, name: d.name, category: d.category, categoryColor: d.categoryColor, durationMins: d.durationMins })}
-            className="w-full text-left px-3 py-2 rounded-lg transition-colors hover:bg-white/5 flex items-center gap-2"
-            style={{ border: '1px solid rgba(241,245,249,0.06)' }}
-          >
-            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: CATEGORY_COLORS[d.category] ?? '#6B7280' }} />
-            <span className="text-sm text-sp-text flex-1 truncate">{d.name}</span>
-            <span className="text-xs flex-shrink-0" style={{ color: 'rgba(241,245,249,0.3)' }}>{d.durationMins}m</span>
-            <span className="text-xs flex-shrink-0" style={{ color: '#F7620A' }}>+</span>
-          </button>
+          <div key={d.id} className="flex items-center gap-1 rounded-lg" style={{ border: '1px solid rgba(241,245,249,0.06)' }}>
+            <button onClick={() => onAdd({ uid: crypto.randomUUID(), drillId: d.id, name: d.name, category: d.category, categoryColor: d.categoryColor, durationMins: d.durationMins })}
+              className="flex-1 text-left px-3 py-2 transition-colors hover:bg-white/5 flex items-center gap-2 min-w-0"
+            >
+              <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: CATEGORY_COLORS[d.category] ?? '#6B7280' }} />
+              <span className="text-sm text-sp-text flex-1 truncate">{d.name}</span>
+              <span className="text-xs flex-shrink-0" style={{ color: 'rgba(241,245,249,0.3)' }}>{d.durationMins}m</span>
+              <span className="text-xs flex-shrink-0" style={{ color: '#F7620A' }}>+</span>
+            </button>
+            <button onClick={() => onInfo({ type: 'drill', data: d })} className="px-2 py-2 text-xs hover:opacity-80 transition-opacity flex-shrink-0" style={{ color: 'rgba(241,245,249,0.25)' }} title="Details">ℹ</button>
+          </div>
         ))}
         {filtered.length === 0 && <p className="text-xs text-center py-8" style={{ color: 'rgba(241,245,249,0.25)' }}>No drills found</p>}
       </div>
@@ -126,7 +326,7 @@ function DrillsTab({ onAdd }: { onAdd: (item: PlanDrill) => void }) {
   )
 }
 
-function GamesTab({ onAdd }: { onAdd: (item: PlanDrill) => void }) {
+function GamesTab({ onAdd, onInfo }: { onAdd: (item: PlanDrill) => void; onInfo: (d: DetailItem) => void }) {
   const [search, setSearch] = useState('')
   const filtered = practiceGames.filter(g => !search.trim() || g.name.toLowerCase().includes(search.toLowerCase()))
   return (
@@ -134,15 +334,17 @@ function GamesTab({ onAdd }: { onAdd: (item: PlanDrill) => void }) {
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search games…" className="sp-input text-sm flex-shrink-0" style={{ padding: '7px 10px' }} />
       <div className="flex-1 overflow-y-auto space-y-1">
         {filtered.map(g => (
-          <button key={g.id} onClick={() => onAdd({ uid: crypto.randomUUID(), drillId: `game-${g.id}`, name: g.name, category: g.category, categoryColor: g.categoryColor, durationMins: g.durationMins })}
-            className="w-full text-left px-3 py-2 rounded-lg transition-colors hover:bg-white/5 flex items-center gap-2"
-            style={{ border: '1px solid rgba(241,245,249,0.06)' }}
-          >
-            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: GAME_CATEGORY_COLORS[g.category] ?? '#6B7280' }} />
-            <span className="text-sm text-sp-text flex-1 truncate">{g.name}</span>
-            <span className="text-xs flex-shrink-0" style={{ color: 'rgba(241,245,249,0.3)' }}>{g.durationMins}m</span>
-            <span className="text-xs flex-shrink-0" style={{ color: '#0ECFB0' }}>+</span>
-          </button>
+          <div key={g.id} className="flex items-center gap-1 rounded-lg" style={{ border: '1px solid rgba(241,245,249,0.06)' }}>
+            <button onClick={() => onAdd({ uid: crypto.randomUUID(), drillId: `game-${g.id}`, name: g.name, category: g.category, categoryColor: g.categoryColor, durationMins: g.durationMins })}
+              className="flex-1 text-left px-3 py-2 transition-colors hover:bg-white/5 flex items-center gap-2 min-w-0"
+            >
+              <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: GAME_CATEGORY_COLORS[g.category] ?? '#6B7280' }} />
+              <span className="text-sm text-sp-text flex-1 truncate">{g.name}</span>
+              <span className="text-xs flex-shrink-0" style={{ color: 'rgba(241,245,249,0.3)' }}>{g.durationMins}m</span>
+              <span className="text-xs flex-shrink-0" style={{ color: '#0ECFB0' }}>+</span>
+            </button>
+            <button onClick={() => onInfo({ type: 'game', data: g })} className="px-2 py-2 text-xs hover:opacity-80 transition-opacity flex-shrink-0" style={{ color: 'rgba(241,245,249,0.25)' }} title="Details">ℹ</button>
+          </div>
         ))}
         {filtered.length === 0 && <p className="text-xs text-center py-8" style={{ color: 'rgba(241,245,249,0.25)' }}>No games found</p>}
       </div>
@@ -150,7 +352,7 @@ function GamesTab({ onAdd }: { onAdd: (item: PlanDrill) => void }) {
   )
 }
 
-function PlaysTab({ onAdd }: { onAdd: (item: PlanDrill) => void }) {
+function PlaysTab({ onAdd, onInfo }: { onAdd: (item: PlanDrill) => void; onInfo: (d: DetailItem) => void }) {
   const [search, setSearch] = useState('')
   const filtered = PLAYS.filter(p => !search.trim() || p.name.toLowerCase().includes(search.toLowerCase()))
   return (
@@ -158,18 +360,20 @@ function PlaysTab({ onAdd }: { onAdd: (item: PlanDrill) => void }) {
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search plays…" className="sp-input text-sm flex-shrink-0" style={{ padding: '7px 10px' }} />
       <div className="flex-1 overflow-y-auto space-y-1">
         {filtered.map(p => (
-          <button key={p.id} onClick={() => onAdd({ uid: crypto.randomUUID(), drillId: `play-${p.id}`, name: p.name, category: p.category, categoryColor: p.categoryColor, durationMins: p.suggestedDurationMins })}
-            className="w-full text-left px-3 py-2 rounded-lg transition-colors hover:bg-white/5 flex items-center gap-2"
-            style={{ border: '1px solid rgba(241,245,249,0.06)' }}
-          >
-            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: PLAY_CATEGORY_COLORS[p.category] ?? '#6B7280' }} />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-sp-text truncate">{p.name}</p>
-              <p className="text-xs" style={{ color: 'rgba(241,245,249,0.3)' }}>{PLAY_CATEGORY_LABELS[p.category]}</p>
-            </div>
-            <span className="text-xs flex-shrink-0" style={{ color: 'rgba(241,245,249,0.3)' }}>{p.suggestedDurationMins}m</span>
-            <span className="text-xs flex-shrink-0" style={{ color: '#3A86FF' }}>+</span>
-          </button>
+          <div key={p.id} className="flex items-center gap-1 rounded-lg" style={{ border: '1px solid rgba(241,245,249,0.06)' }}>
+            <button onClick={() => onAdd({ uid: crypto.randomUUID(), drillId: `play-${p.id}`, name: p.name, category: p.category, categoryColor: p.categoryColor, durationMins: p.suggestedDurationMins })}
+              className="flex-1 text-left px-3 py-2 transition-colors hover:bg-white/5 flex items-center gap-2 min-w-0"
+            >
+              <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: PLAY_CATEGORY_COLORS[p.category] ?? '#6B7280' }} />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-sp-text truncate">{p.name}</p>
+                <p className="text-xs" style={{ color: 'rgba(241,245,249,0.3)' }}>{PLAY_CATEGORY_LABELS[p.category]}</p>
+              </div>
+              <span className="text-xs flex-shrink-0" style={{ color: 'rgba(241,245,249,0.3)' }}>{p.suggestedDurationMins}m</span>
+              <span className="text-xs flex-shrink-0" style={{ color: '#3A86FF' }}>+</span>
+            </button>
+            <button onClick={() => onInfo({ type: 'play', data: p })} className="px-2 py-2 text-xs hover:opacity-80 transition-opacity flex-shrink-0" style={{ color: 'rgba(241,245,249,0.25)' }} title="Details">ℹ</button>
+          </div>
         ))}
         {filtered.length === 0 && <p className="text-xs text-center py-8" style={{ color: 'rgba(241,245,249,0.25)' }}>No plays found</p>}
       </div>
@@ -210,6 +414,7 @@ export default function SplitBuilder({
   const [focusAreas, setFocusAreas] = useState<string[]>([])
   const [activeTab, setActiveTab] = useState<LibTab>('drills')
   const [mobilePanel, setMobilePanel] = useState<'plan' | 'library'>('plan')
+  const [detailItem, setDetailItem] = useState<DetailItem>(null)
   const sensors = useSensors(useSensor(PointerSensor))
 
   const totalMins = items.reduce((s, d) => s + d.durationMins, 0)
@@ -334,6 +539,7 @@ export default function SplitBuilder({
                       item={item}
                       onRemove={() => setItems(prev => prev.filter(d => d.uid !== item.uid))}
                       onDurationChange={m => setItems(prev => prev.map(d => d.uid === item.uid ? { ...d, durationMins: m } : d))}
+                      onInfo={() => setDetailItem(lookupDetail(item.drillId))}
                     />
                   ))}
                 </div>
@@ -398,9 +604,9 @@ export default function SplitBuilder({
 
         {/* tab content */}
         <div className="flex-1 overflow-hidden p-3">
-          {activeTab === 'drills' && <DrillsTab onAdd={addItem} />}
-          {activeTab === 'games' && <GamesTab onAdd={addItem} />}
-          {activeTab === 'plays' && <PlaysTab onAdd={addItem} />}
+          {activeTab === 'drills' && <DrillsTab onAdd={addItem} onInfo={setDetailItem} />}
+          {activeTab === 'games' && <GamesTab onAdd={addItem} onInfo={setDetailItem} />}
+          {activeTab === 'plays' && <PlaysTab onAdd={addItem} onInfo={setDetailItem} />}
           {activeTab === 'ai' && (
             <div className="flex flex-col items-center justify-center h-full text-center px-6">
               <div className="text-3xl mb-3">🤖</div>
@@ -412,6 +618,9 @@ export default function SplitBuilder({
           )}
         </div>
       </div>
+
+      {/* Detail modal */}
+      {detailItem && <DetailModal detail={detailItem} onClose={() => setDetailItem(null)} />}
     </div>
   )
 }
