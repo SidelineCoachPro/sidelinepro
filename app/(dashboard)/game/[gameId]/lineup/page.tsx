@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -19,6 +19,9 @@ import { Barlow_Condensed } from 'next/font/google'
 import { useGame, useUpdateGame } from '@/hooks/useGames'
 import { usePlayers, type Player } from '@/hooks/usePlayers'
 import { useEvaluations } from '@/hooks/useEvaluations'
+import { useTeam } from '@/lib/teamContext'
+import { useTeamToken } from '@/hooks/useTeamToken'
+import { useGameRSVPs } from '@/hooks/useGameRSVPs'
 
 const barlow = Barlow_Condensed({ subsets: ['latin'], weight: '900' })
 
@@ -47,9 +50,16 @@ function gradeColor(grade: string): string {
 }
 
 // ── Draggable Player Chip ─────────────────────────────────────────────────────
-function DraggableChip({ player, grade, used }: { player: Player; avg?: number | null; grade: string | null; used: boolean }) {
+function DraggableChip({ player, grade, used, rsvpStatus }: {
+  player: Player
+  avg?: number | null
+  grade: string | null
+  used: boolean
+  rsvpStatus?: 'yes' | 'no' | 'maybe' | null
+}) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `player-${player.id}` })
   const gColor = grade ? gradeColor(grade) : 'rgba(241,245,249,0.3)'
+  const isOut  = rsvpStatus === 'no'
 
   return (
     <div
@@ -58,8 +68,8 @@ function DraggableChip({ player, grade, used }: { player: Player; avg?: number |
       {...attributes}
       className="flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-grab active:cursor-grabbing select-none transition-opacity"
       style={{
-        backgroundColor: 'rgba(241,245,249,0.04)',
-        border: '1px solid rgba(241,245,249,0.08)',
+        backgroundColor: isOut ? 'rgba(239,68,68,0.04)' : 'rgba(241,245,249,0.04)',
+        border: isOut ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(241,245,249,0.08)',
         opacity: isDragging ? 0.4 : used ? 0.35 : 1,
         touchAction: 'none',
       }}
@@ -73,6 +83,15 @@ function DraggableChip({ player, grade, used }: { player: Player; avg?: number |
           {[player.position, player.jersey_number ? `#${player.jersey_number}` : null].filter(Boolean).join(' · ')}
         </p>
       </div>
+      {rsvpStatus === 'no' && (
+        <span className="text-xs font-bold px-1.5 py-0.5 rounded flex-shrink-0" style={{ backgroundColor: 'rgba(239,68,68,0.12)', color: '#EF4444' }}>Out</span>
+      )}
+      {rsvpStatus === 'maybe' && (
+        <span className="text-xs font-bold px-1.5 py-0.5 rounded flex-shrink-0" style={{ backgroundColor: 'rgba(245,183,49,0.12)', color: '#F5B731' }}>?</span>
+      )}
+      {rsvpStatus === 'yes' && (
+        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: '#22C55E' }} />
+      )}
       {grade && (
         <span className="text-xs font-bold flex-shrink-0" style={{ color: gColor }}>{grade}</span>
       )}
@@ -98,13 +117,14 @@ function PlayerChip({ player, grade }: { player: Player; avg?: number | null; gr
 
 // ── Droppable Slot ────────────────────────────────────────────────────────────
 function LineupSlot({
-  qtr, slotIdx, playerId, players, gradeMap, pickerSlot, onSetPicker, onRemove, onPickPlayer,
+  qtr, slotIdx, playerId, players, gradeMap, rsvpMap, pickerSlot, onSetPicker, onRemove, onPickPlayer,
 }: {
   qtr: QuarterKey
   slotIdx: number
   playerId: string | null
   players: Player[]
   gradeMap: Map<string, { grade: string; avg: number }>
+  rsvpMap: Map<string, 'yes' | 'no' | 'maybe'>
   pickerSlot: string | null
   onSetPicker: (key: string | null) => void
   onRemove: () => void
@@ -115,6 +135,7 @@ function LineupSlot({
   const position = POSITIONS[slotIdx]
   const player = playerId ? players.find(p => p.id === playerId) ?? null : null
   const gradeInfo = player ? gradeMap.get(player.id) ?? null : null
+  const rsvpStatus = player ? (rsvpMap.get(player.id) ?? null) : null
   const pickerRef = useRef<HTMLDivElement>(null)
 
   // Close picker on outside click
@@ -154,6 +175,12 @@ function LineupSlot({
               <div className="flex items-center gap-1.5 mt-0.5">
                 {player.jersey_number && <span className="text-xs" style={{ color: 'rgba(241,245,249,0.4)' }}>#{player.jersey_number}</span>}
                 {player.position && <span className="text-xs" style={{ color: 'rgba(241,245,249,0.4)' }}>{player.position}</span>}
+                {rsvpStatus === 'no' && (
+                  <span className="text-xs font-bold px-1.5 py-0 rounded" style={{ backgroundColor: 'rgba(239,68,68,0.12)', color: '#EF4444' }}>Unavailable</span>
+                )}
+                {rsvpStatus === 'maybe' && (
+                  <span className="text-xs font-bold px-1.5 py-0 rounded" style={{ backgroundColor: 'rgba(245,183,49,0.12)', color: '#F5B731' }}>Maybe</span>
+                )}
               </div>
             </div>
             {gradeInfo && (
@@ -191,8 +218,9 @@ function LineupSlot({
             <p className="px-4 py-3 text-xs" style={{ color: 'rgba(241,245,249,0.4)' }}>No players available</p>
           ) : (
             availablePlayers.map(p => {
-              const gi = gradeMap.get(p.id)
-              const gc = gi ? gradeColor(gi.grade) : 'rgba(241,245,249,0.3)'
+              const gi  = gradeMap.get(p.id)
+              const gc  = gi ? gradeColor(gi.grade) : 'rgba(241,245,249,0.3)'
+              const rs  = rsvpMap.get(p.id) ?? null
               return (
                 <button
                   key={p.id}
@@ -200,6 +228,8 @@ function LineupSlot({
                   className="w-full flex items-center gap-2.5 px-4 py-2.5 text-left transition-colors hover:bg-white/[0.04]"
                 >
                   <span className="text-xs font-semibold text-sp-text flex-1 truncate">{p.first_name} {p.last_name ?? ''}</span>
+                  {rs === 'no' && <span className="text-xs font-bold" style={{ color: '#EF4444' }}>Out</span>}
+                  {rs === 'maybe' && <span className="text-xs font-bold" style={{ color: '#F5B731' }}>?</span>}
                   {p.position && <span className="text-xs" style={{ color: 'rgba(241,245,249,0.35)' }}>{p.position}</span>}
                   {gi && <span className="text-xs font-bold" style={{ color: gc }}>{gi.grade}</span>}
                 </button>
@@ -220,6 +250,26 @@ export default function LineupPage() {
   const { data: players = [] } = usePlayers()
   const { data: evals = [] } = useEvaluations()
   const { mutateAsync: updateGame, isPending: isSaving } = useUpdateGame()
+
+  // RSVPs
+  const { activeTeamId } = useTeam()
+  const { data: tokenData } = useTeamToken(activeTeamId)
+  const { data: rsvps = [] } = useGameRSVPs(gameId, tokenData?.token ?? null)
+
+  // Match RSVP player_name → player id (full name first, then first name)
+  const rsvpMap = useMemo(() => {
+    const map = new Map<string, 'yes' | 'no' | 'maybe'>()
+    for (const rsvp of rsvps) {
+      const name = rsvp.player_name.trim().toLowerCase()
+      const matched = players.find(p => {
+        const full  = `${p.first_name} ${p.last_name ?? ''}`.trim().toLowerCase()
+        const first = p.first_name.toLowerCase()
+        return full === name || first === name
+      })
+      if (matched) map.set(matched.id, rsvp.response)
+    }
+    return map
+  }, [rsvps, players])
 
   const [activeQtr, setActiveQtr] = useState<QuarterKey>('q1')
   const [lineups, setLineups] = useState<Record<QuarterKey, (string | null)[]>>({
@@ -301,7 +351,7 @@ export default function LineupPage() {
     setConfirmAutoFill(false)
 
     const sorted = [...players]
-      .filter(p => p.is_active)
+      .filter(p => p.is_active && rsvpMap.get(p.id) !== 'no')
       .sort((a, b) => {
         const aAvg = gradeMap.get(a.id)?.avg ?? 0
         const bAvg = gradeMap.get(b.id)?.avg ?? 0
@@ -391,6 +441,33 @@ export default function LineupPage() {
           </p>
         </div>
 
+        {/* RSVP summary banner */}
+        {rsvps.length > 0 && (() => {
+          const yes   = rsvps.filter(r => r.response === 'yes').length
+          const no    = rsvps.filter(r => r.response === 'no').length
+          const maybe = rsvps.filter(r => r.response === 'maybe').length
+          return (
+            <div className="flex items-center gap-3 mb-5 px-4 py-2.5 rounded-xl flex-wrap" style={{ backgroundColor: 'rgba(241,245,249,0.04)', border: '1px solid rgba(241,245,249,0.08)' }}>
+              <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'rgba(241,245,249,0.35)' }}>RSVPs</span>
+              {yes > 0 && (
+                <span className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: '#22C55E' }}>
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#22C55E' }} />{yes} Available
+                </span>
+              )}
+              {no > 0 && (
+                <span className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: '#EF4444' }}>
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#EF4444' }} />{no} Unavailable
+                </span>
+              )}
+              {maybe > 0 && (
+                <span className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: '#F5B731' }}>
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#F5B731' }} />{maybe} Maybe
+                </span>
+              )}
+            </div>
+          )
+        })()}
+
         {/* Quarter tabs */}
         <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ backgroundColor: 'rgba(241,245,249,0.04)', border: '1px solid rgba(241,245,249,0.07)' }}>
           {QUARTERS.map(q => {
@@ -446,6 +523,7 @@ export default function LineupPage() {
                 playerId={currentLineup[slotIdx] ?? null}
                 players={players.filter(p => p.is_active)}
                 gradeMap={gradeMap}
+                rsvpMap={rsvpMap}
                 pickerSlot={pickerSlot}
                 onSetPicker={setPickerSlot}
                 onRemove={() => setSlot(activeQtr, slotIdx, null)}
@@ -499,6 +577,9 @@ export default function LineupPage() {
               {players
                 .filter(p => p.is_active)
                 .sort((a, b) => {
+                  const aOut = rsvpMap.get(a.id) === 'no' ? 1 : 0
+                  const bOut = rsvpMap.get(b.id) === 'no' ? 1 : 0
+                  if (aOut !== bOut) return aOut - bOut
                   const aAvg = gradeMap.get(a.id)?.avg ?? 0
                   const bAvg = gradeMap.get(b.id)?.avg ?? 0
                   return bAvg - aAvg
@@ -512,6 +593,7 @@ export default function LineupPage() {
                       avg={gi?.avg ?? null}
                       grade={gi?.grade ?? null}
                       used={usedIds.has(player.id)}
+                      rsvpStatus={rsvpMap.get(player.id) ?? null}
                     />
                   )
                 })}
