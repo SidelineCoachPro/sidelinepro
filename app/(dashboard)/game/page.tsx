@@ -532,7 +532,7 @@ export default function GameDayPage() {
               className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-lg transition-opacity hover:opacity-85"
               style={{ backgroundColor: 'rgba(241,245,249,0.07)', color: 'rgba(241,245,249,0.6)', border: '1px solid rgba(241,245,249,0.1)' }}
             >
-              🔗 Share
+              🔗 Parent Link
             </button>
           )}
           <button

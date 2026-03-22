@@ -13,6 +13,8 @@ import {
 } from '@/hooks/useCalendar'
 import { useCreateGame } from '@/hooks/useGames'
 import { usePracticePlans, useSchedulePractice } from '@/hooks/usePracticePlans'
+import { useTeam } from '@/lib/teamContext'
+import { useTeamToken } from '@/hooks/useTeamToken'
 
 const barlow = Barlow_Condensed({ subsets: ['latin'], weight: '900' })
 
@@ -679,6 +681,46 @@ function EmptyMonth({ monthName, onAdd }: { monthName: string; onAdd: (type: 'ga
   )
 }
 
+// ── Share Link Modal ──────────────────────────────────────────────────────────
+
+function ShareLinkModal({ token, url, onClose }: { token: string; url: string; onClose: () => void }) {
+  const [copied, setCopied] = useState(false)
+  function copy() {
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="w-full max-w-md rounded-xl overflow-hidden" style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.1)' }}>
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(241,245,249,0.07)' }}>
+          <h2 className="text-base font-semibold text-sp-text">Parent Link</h2>
+          <button onClick={onClose} style={{ color: 'rgba(241,245,249,0.4)' }} className="hover:opacity-60 text-lg leading-none">✕</button>
+        </div>
+        <div className="px-5 py-5 space-y-4">
+          <p className="text-sm" style={{ color: 'rgba(241,245,249,0.5)' }}>
+            Share this link with parents so they can view the schedule, RSVP to games, and see announcements — no login required.
+          </p>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 px-3 py-2.5 rounded-lg text-sm truncate font-mono" style={{ backgroundColor: 'rgba(241,245,249,0.05)', color: 'rgba(241,245,249,0.7)', border: '1px solid rgba(241,245,249,0.1)' }}>
+              {url}
+            </div>
+            <button
+              onClick={copy}
+              className="px-4 py-2.5 text-sm font-semibold rounded-lg flex-shrink-0 transition-all"
+              style={{ backgroundColor: copied ? 'rgba(34,197,94,0.15)' : 'rgba(247,98,10,0.15)', color: copied ? '#22C55E' : '#F7620A', border: `1px solid ${copied ? 'rgba(34,197,94,0.3)' : 'rgba(247,98,10,0.3)'}` }}
+            >
+              {copied ? '✓ Copied' : 'Copy'}
+            </button>
+          </div>
+          <p className="text-xs" style={{ color: 'rgba(241,245,249,0.3)' }}>Token: {token.slice(0, 8)}…</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Inner Page (uses useSearchParams) ────────────────────────────────────────
 
 function CalendarPageInner() {
@@ -686,6 +728,9 @@ function CalendarPageInner() {
   const searchParams = useSearchParams()
   const { mutateAsync: schedulePractice } = useSchedulePractice()
   const { mutateAsync: deleteCalEvent }   = useDeleteCalendarEvent()
+  const { activeTeamId } = useTeam()
+  const { data: tokenData } = useTeamToken(activeTeamId)
+  const [showShare, setShowShare] = useState(false)
 
   // Parse month from URL or default to current
   const [year, month] = useMemo(() => {
@@ -821,6 +866,15 @@ function CalendarPageInner() {
             ))}
           </div>
 
+          {tokenData && (
+            <button
+              onClick={() => setShowShare(true)}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-lg transition-opacity hover:opacity-85"
+              style={{ backgroundColor: 'rgba(241,245,249,0.07)', color: 'rgba(241,245,249,0.6)', border: '1px solid rgba(241,245,249,0.1)' }}
+            >
+              🔗 Parent Link
+            </button>
+          )}
           <button
             onClick={() => setAddModal({})}
             className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg transition-opacity hover:opacity-85"
@@ -871,6 +925,11 @@ function CalendarPageInner() {
           defaultType={addModal.type}
           onClose={() => setAddModal(null)}
         />
+      )}
+
+      {/* Parent Link modal */}
+      {showShare && tokenData && (
+        <ShareLinkModal token={tokenData.token} url={tokenData.url} onClose={() => setShowShare(false)} />
       )}
     </div>
   )
