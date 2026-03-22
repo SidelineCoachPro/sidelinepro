@@ -6,6 +6,13 @@ import { useMessageLog, useLogMessage } from '@/hooks/useMessageLog'
 import { useParentContacts, type ParentContact } from '@/hooks/useParentContacts'
 import { usePlayers } from '@/hooks/usePlayers'
 import { TEMPLATES, type Template } from '@/lib/commsTemplates'
+import {
+  useAnnouncements,
+  useCreateAnnouncement,
+  useUpdateAnnouncement,
+  useDeleteAnnouncement,
+  type Announcement,
+} from '@/hooks/useAnnouncements'
 
 type Channel = 'sms' | 'email' | 'whatsapp'
 
@@ -514,6 +521,190 @@ CREATE POLICY "message_log_own" ON message_log
   )
 }
 
+// ── Announcement Form Modal ────────────────────────────────────────────────────
+function AnnouncementFormModal({
+  announcement,
+  onClose,
+}: {
+  announcement?: Announcement
+  onClose: () => void
+}) {
+  const isEdit = !!announcement
+  const { mutateAsync: create, isPending: isCreating } = useCreateAnnouncement()
+  const { mutateAsync: update, isPending: isUpdating } = useUpdateAnnouncement()
+  const isPending = isCreating || isUpdating
+
+  const [title, setTitle] = useState(announcement?.title ?? '')
+  const [body, setBody] = useState(announcement?.body ?? '')
+  const [isPinned, setIsPinned] = useState(announcement?.is_pinned ?? false)
+  const [error, setError] = useState('')
+
+  async function handleSave() {
+    if (!title.trim()) { setError('Title is required'); return }
+    if (!body.trim()) { setError('Message body is required'); return }
+    setError('')
+    try {
+      if (isEdit && announcement) {
+        await update({ id: announcement.id, title: title.trim(), body: body.trim(), is_pinned: isPinned })
+      } else {
+        await create({ title: title.trim(), body: body.trim(), is_pinned: isPinned })
+      }
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save')
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="w-full max-w-md rounded-xl flex flex-col overflow-hidden" style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.1)' }}>
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(241,245,249,0.07)' }}>
+          <h2 className="text-base font-semibold text-sp-text">{isEdit ? 'Edit Announcement' : 'New Announcement'}</h2>
+          <button onClick={onClose} style={{ color: 'rgba(241,245,249,0.4)' }} className="hover:opacity-60 text-lg leading-none">✕</button>
+        </div>
+        <div className="px-5 py-5 space-y-4">
+          <div>
+            <label className="block mb-1.5 text-xs font-medium" style={{ color: 'rgba(241,245,249,0.6)' }}>Title *</label>
+            <input value={title} onChange={e => setTitle(e.target.value)} className="sp-input w-full" placeholder="e.g. Practice cancelled Friday" />
+          </div>
+          <div>
+            <label className="block mb-1.5 text-xs font-medium" style={{ color: 'rgba(241,245,249,0.6)' }}>Message *</label>
+            <textarea value={body} onChange={e => setBody(e.target.value)} className="sp-input w-full" rows={4} placeholder="Write your announcement here..." style={{ resize: 'vertical' }} />
+          </div>
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <div
+              onClick={() => setIsPinned(v => !v)}
+              className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 transition-colors"
+              style={{
+                backgroundColor: isPinned ? '#F7620A' : 'rgba(241,245,249,0.08)',
+                border: `1px solid ${isPinned ? '#F7620A' : 'rgba(241,245,249,0.15)'}`,
+              }}
+            >
+              {isPinned && <span className="text-white text-xs font-bold">✓</span>}
+            </div>
+            <span className="text-sm" style={{ color: 'rgba(241,245,249,0.6)' }}>Pin to top</span>
+          </label>
+          {error && <p className="text-sm text-red-400 px-3 py-2 rounded-lg" style={{ backgroundColor: 'rgba(239,68,68,0.1)' }}>{error}</p>}
+        </div>
+        <div className="flex items-center justify-end gap-3 px-5 py-4" style={{ borderTop: '1px solid rgba(241,245,249,0.07)' }}>
+          <button onClick={onClose} className="px-4 py-2 text-sm font-medium" style={{ color: 'rgba(241,245,249,0.5)' }}>Cancel</button>
+          <button
+            onClick={handleSave}
+            disabled={isPending}
+            className="px-5 py-2 text-sm font-semibold rounded-lg disabled:opacity-50 hover:opacity-85 transition-opacity"
+            style={{ backgroundColor: '#F7620A', color: '#fff' }}
+          >
+            {isPending ? 'Saving…' : isEdit ? 'Save Changes' : 'Post Announcement'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Announcement Card ──────────────────────────────────────────────────────────
+function AnnouncementCard({ ann }: { ann: Announcement }) {
+  const { mutateAsync: update } = useUpdateAnnouncement()
+  const { mutateAsync: del } = useDeleteAnnouncement()
+  const [editing, setEditing] = useState(false)
+  const [confirmDel, setConfirmDel] = useState(false)
+
+  function formatDate(iso: string) {
+    const d = new Date(iso)
+    const now = new Date()
+    const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000)
+    if (diffDays === 0) return 'Today'
+    if (diffDays === 1) return 'Yesterday'
+    if (diffDays < 7) return `${diffDays}d ago`
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+
+  return (
+    <>
+      <div className="rounded-xl p-4" style={{ backgroundColor: '#0E1520', border: ann.is_pinned ? '1px solid rgba(247,98,10,0.3)' : '1px solid rgba(241,245,249,0.07)' }}>
+        <div className="flex items-start gap-3">
+          {ann.is_pinned && (
+            <span className="flex-shrink-0 text-base mt-0.5" title="Pinned">📌</span>
+          )}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2 mb-1">
+              <p className="text-sm font-bold text-sp-text leading-tight">{ann.title}</p>
+              <p className="text-xs flex-shrink-0 mt-0.5" style={{ color: 'rgba(241,245,249,0.3)' }}>{formatDate(ann.created_at)}</p>
+            </div>
+            <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'rgba(241,245,249,0.6)' }}>{ann.body}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 mt-3 pt-3" style={{ borderTop: '1px solid rgba(241,245,249,0.06)' }}>
+          <button
+            onClick={() => update({ id: ann.id, is_pinned: !ann.is_pinned })}
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-opacity hover:opacity-80"
+            style={{ backgroundColor: ann.is_pinned ? 'rgba(247,98,10,0.12)' : 'rgba(241,245,249,0.06)', color: ann.is_pinned ? '#F7620A' : 'rgba(241,245,249,0.45)', border: `1px solid ${ann.is_pinned ? 'rgba(247,98,10,0.25)' : 'rgba(241,245,249,0.1)'}` }}
+          >
+            {ann.is_pinned ? '📌 Pinned' : 'Pin'}
+          </button>
+          <button onClick={() => setEditing(true)} className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-opacity hover:opacity-80" style={{ backgroundColor: 'rgba(241,245,249,0.06)', color: 'rgba(241,245,249,0.45)', border: '1px solid rgba(241,245,249,0.1)' }}>
+            Edit
+          </button>
+          {confirmDel ? (
+            <>
+              <button onClick={() => del(ann.id)} className="px-3 py-1.5 text-xs font-semibold rounded-lg" style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#EF4444' }}>Confirm delete</button>
+              <button onClick={() => setConfirmDel(false)} className="text-xs" style={{ color: 'rgba(241,245,249,0.35)' }}>Cancel</button>
+            </>
+          ) : (
+            <button onClick={() => setConfirmDel(true)} className="ml-auto text-xs hover:opacity-60 transition-opacity" style={{ color: 'rgba(241,245,249,0.2)' }}>✕</button>
+          )}
+        </div>
+      </div>
+      {editing && <AnnouncementFormModal announcement={ann} onClose={() => setEditing(false)} />}
+    </>
+  )
+}
+
+// ── Announcements Section ──────────────────────────────────────────────────────
+function AnnouncementsSection() {
+  const { data: announcements = [], isLoading, isError } = useAnnouncements()
+  const [showNew, setShowNew] = useState(false)
+
+  return (
+    <section className="mb-10">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'rgba(241,245,249,0.35)' }}>
+          Team Announcements
+        </h2>
+        <button
+          onClick={() => setShowNew(true)}
+          className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg transition-opacity hover:opacity-85"
+          style={{ backgroundColor: 'rgba(247,98,10,0.12)', color: '#F7620A', border: '1px solid rgba(247,98,10,0.25)' }}
+        >
+          + New
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="py-6 text-center"><p className="text-sm" style={{ color: 'rgba(241,245,249,0.3)' }}>Loading…</p></div>
+      ) : isError ? (
+        <div className="rounded-xl px-4 py-5 text-center" style={{ border: '1px dashed rgba(241,245,249,0.1)' }}>
+          <p className="text-sm" style={{ color: 'rgba(241,245,249,0.4)' }}>Run the Supabase migration to enable announcements.</p>
+        </div>
+      ) : announcements.length === 0 ? (
+        <div className="rounded-xl px-4 py-8 text-center" style={{ border: '1px dashed rgba(241,245,249,0.08)' }}>
+          <p className="text-sm" style={{ color: 'rgba(241,245,249,0.35)' }}>No announcements yet. Post one for parents to see.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {announcements.map(ann => <AnnouncementCard key={ann.id} ann={ann} />)}
+        </div>
+      )}
+
+      {showNew && <AnnouncementFormModal onClose={() => setShowNew(false)} />}
+    </section>
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function CommsPage() {
@@ -579,6 +770,9 @@ export default function CommsPage() {
           )}
         </div>
       )}
+
+      {/* Announcements */}
+      <AnnouncementsSection />
 
       {/* Quick Templates */}
       <section className="mb-10">

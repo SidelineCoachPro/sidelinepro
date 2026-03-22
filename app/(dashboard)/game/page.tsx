@@ -1,14 +1,168 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Barlow_Condensed } from 'next/font/google'
 import { useGames, useCreateGame, useUpdateGame, useDeleteGame, type Game } from '@/hooks/useGames'
 import { usePracticePlans } from '@/hooks/usePracticePlans'
 import { EVENT_COLORS } from '@/hooks/useCalendar'
+import { useTeam } from '@/lib/teamContext'
+import { useTeamToken } from '@/hooks/useTeamToken'
 
 const barlow = Barlow_Condensed({ subsets: ['latin'], weight: '900' })
+
+// ── RSVP types ────────────────────────────────────────────────────────────────
+interface RsvpEntry {
+  player_name: string
+  parent_name: string
+  response: 'yes' | 'no' | 'maybe'
+  note: string | null
+  updated_at: string
+}
+
+// ── Share Parent Link Modal ────────────────────────────────────────────────────
+function ShareLinkModal({ token, url, onClose }: { token: string; url: string; onClose: () => void }) {
+  const [copied, setCopied] = useState(false)
+  function copy() {
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="w-full max-w-md rounded-xl overflow-hidden" style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.1)' }}>
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(241,245,249,0.07)' }}>
+          <h2 className="text-base font-semibold text-sp-text">Share Parent Link</h2>
+          <button onClick={onClose} style={{ color: 'rgba(241,245,249,0.4)' }} className="hover:opacity-60 text-lg leading-none">✕</button>
+        </div>
+        <div className="px-5 py-5 space-y-4">
+          <p className="text-sm" style={{ color: 'rgba(241,245,249,0.5)' }}>
+            Share this link with parents so they can view the schedule, RSVP to games, and see announcements — no login required.
+          </p>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 px-3 py-2.5 rounded-lg text-sm truncate font-mono" style={{ backgroundColor: 'rgba(241,245,249,0.05)', color: 'rgba(241,245,249,0.7)', border: '1px solid rgba(241,245,249,0.1)' }}>
+              {url}
+            </div>
+            <button
+              onClick={copy}
+              className="px-4 py-2.5 text-sm font-semibold rounded-lg flex-shrink-0 transition-all"
+              style={{ backgroundColor: copied ? 'rgba(34,197,94,0.15)' : 'rgba(247,98,10,0.15)', color: copied ? '#22C55E' : '#F7620A', border: `1px solid ${copied ? 'rgba(34,197,94,0.3)' : 'rgba(247,98,10,0.3)'}` }}
+            >
+              {copied ? '✓ Copied' : 'Copy'}
+            </button>
+          </div>
+          <p className="text-xs" style={{ color: 'rgba(241,245,249,0.3)' }}>Token: {token.slice(0, 8)}…</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── RSVP List Modal ───────────────────────────────────────────────────────────
+function RsvpListModal({ game, token, onClose }: { game: Game; token: string; onClose: () => void }) {
+  const [rsvps, setRsvps] = useState<RsvpEntry[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/parent/rsvp?gameId=${game.id}&token=${token}`)
+      if (res.ok) {
+        const data = await res.json()
+        setRsvps(data.rsvps ?? [])
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [game.id, token])
+
+  useMemo(() => { load() }, [load])
+
+  const counts = useMemo(() => {
+    const c = { yes: 0, no: 0, maybe: 0 }
+    for (const r of rsvps) c[r.response]++
+    return c
+  }, [rsvps])
+
+  function exportCsv() {
+    const rows = [
+      ['Player', 'Parent', 'Response', 'Note', 'Updated'],
+      ...rsvps.map(r => [r.player_name, r.parent_name, r.response, r.note ?? '', new Date(r.updated_at).toLocaleString()]),
+    ]
+    const csv = rows.map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url; a.download = `rsvps-${game.opponent.replace(/\s+/g, '-')}.csv`; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const RESP_CONFIG = {
+    yes:   { label: '✓ Yes',   bg: 'rgba(34,197,94,0.15)',   color: '#22C55E' },
+    no:    { label: '✗ No',    bg: 'rgba(239,68,68,0.15)',   color: '#EF4444' },
+    maybe: { label: '? Maybe', bg: 'rgba(245,183,49,0.15)',  color: '#F5B731' },
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="w-full max-w-lg rounded-xl flex flex-col overflow-hidden" style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.1)', maxHeight: '85vh' }}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(241,245,249,0.07)' }}>
+          <div>
+            <h2 className="text-base font-semibold text-sp-text">RSVPs — vs {game.opponent}</h2>
+            <p className="text-xs mt-0.5" style={{ color: 'rgba(241,245,249,0.4)' }}>{new Date(game.scheduled_at).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+          </div>
+          <button onClick={onClose} style={{ color: 'rgba(241,245,249,0.4)' }} className="hover:opacity-60 text-lg leading-none">✕</button>
+        </div>
+        {/* Summary bar */}
+        {rsvps.length > 0 && (
+          <div className="flex gap-3 px-5 py-3" style={{ borderBottom: '1px solid rgba(241,245,249,0.07)' }}>
+            {(Object.entries(RESP_CONFIG) as [keyof typeof RESP_CONFIG, typeof RESP_CONFIG[keyof typeof RESP_CONFIG]][]).map(([key, cfg]) => (
+              <div key={key} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ backgroundColor: cfg.bg }}>
+                <span className="text-sm font-bold" style={{ color: cfg.color }}>{counts[key]}</span>
+                <span className="text-xs" style={{ color: cfg.color }}>{cfg.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {/* List */}
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-12"><p className="text-sm" style={{ color: 'rgba(241,245,249,0.35)' }}>Loading…</p></div>
+          ) : rsvps.length === 0 ? (
+            <div className="flex items-center justify-center py-12"><p className="text-sm" style={{ color: 'rgba(241,245,249,0.35)' }}>No RSVPs yet</p></div>
+          ) : (
+            rsvps.map((r, i) => {
+              const cfg = RESP_CONFIG[r.response]
+              return (
+                <div key={i} className="flex items-center gap-3 px-5 py-3.5" style={{ borderBottom: i < rsvps.length - 1 ? '1px solid rgba(241,245,249,0.05)' : 'none' }}>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold" style={{ backgroundColor: cfg.bg, color: cfg.color }}>
+                    {r.player_name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-sp-text">{r.player_name}</p>
+                    {r.parent_name && <p className="text-xs" style={{ color: 'rgba(241,245,249,0.4)' }}>via {r.parent_name}</p>}
+                    {r.note && <p className="text-xs mt-0.5 italic" style={{ color: 'rgba(241,245,249,0.45)' }}>&ldquo;{r.note}&rdquo;</p>}
+                  </div>
+                  <span className="flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: cfg.bg, color: cfg.color }}>{cfg.label}</span>
+                </div>
+              )
+            })
+          )}
+        </div>
+        {/* Footer */}
+        {rsvps.length > 0 && (
+          <div className="px-5 py-4" style={{ borderTop: '1px solid rgba(241,245,249,0.07)' }}>
+            <button onClick={exportCsv} className="w-full py-2.5 rounded-lg text-sm font-semibold transition-opacity hover:opacity-80" style={{ backgroundColor: 'rgba(241,245,249,0.06)', color: 'rgba(241,245,249,0.6)', border: '1px solid rgba(241,245,249,0.1)' }}>
+              Export CSV
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 function formatGameTime(iso: string) {
@@ -107,13 +261,19 @@ function GameFormModal({ game, onClose }: { game?: Game; onClose: () => void }) 
 }
 
 // ── Game Card ─────────────────────────────────────────────────────────────────
-function GameCard({ game, onDelete }: { game: Game; onDelete: () => void }) {
+function GameCard({ game, onDelete, token, rsvpCounts }: {
+  game: Game
+  onDelete: () => void
+  token?: string
+  rsvpCounts?: { yes: number; no: number; maybe: number }
+}) {
   const d = daysUntil(game.scheduled_at)
   const isPast = d < 0
   const isToday = d === 0
   const hasFinal = isPast && (game.our_score !== null || game.opponent_score !== null)
   const [confirmDel, setConfirmDel] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [showRsvps, setShowRsvps] = useState(false)
 
   return (
     <>
@@ -148,6 +308,14 @@ function GameCard({ game, onDelete }: { game: Game; onDelete: () => void }) {
             {game.our_score ?? '—'} – {game.opponent_score ?? '—'}
           </p>
         )}
+        {/* RSVP summary for upcoming games */}
+        {!isPast && rsvpCounts && (rsvpCounts.yes + rsvpCounts.no + rsvpCounts.maybe) > 0 && (
+          <div className="flex items-center gap-2 mb-2.5">
+            {rsvpCounts.yes > 0 && <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(34,197,94,0.12)', color: '#22C55E' }}>{rsvpCounts.yes} ✓</span>}
+            {rsvpCounts.no > 0 && <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(239,68,68,0.12)', color: '#EF4444' }}>{rsvpCounts.no} ✗</span>}
+            {rsvpCounts.maybe > 0 && <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(245,183,49,0.12)', color: '#F5B731' }}>{rsvpCounts.maybe} ?</span>}
+          </div>
+        )}
         <div className="flex items-center gap-2 flex-wrap">
           <Link href={`/game/${game.id}/lineup`} className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-opacity hover:opacity-80" style={{ backgroundColor: 'rgba(139,92,246,0.15)', color: '#8B5CF6', border: '1px solid rgba(139,92,246,0.3)' }}>
             Lineup
@@ -155,6 +323,11 @@ function GameCard({ game, onDelete }: { game: Game; onDelete: () => void }) {
           <Link href={`/game/${game.id}/track`} className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-opacity hover:opacity-80" style={{ backgroundColor: 'rgba(247,98,10,0.12)', color: '#F7620A', border: '1px solid rgba(247,98,10,0.25)' }}>
             Track Game
           </Link>
+          {!isPast && token && (
+            <button onClick={() => setShowRsvps(true)} className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-opacity hover:opacity-80" style={{ backgroundColor: 'rgba(56,189,248,0.1)', color: '#38BDF8', border: '1px solid rgba(56,189,248,0.25)' }}>
+              RSVPs
+            </button>
+          )}
           <button onClick={() => setEditing(true)} className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-opacity hover:opacity-80" style={{ backgroundColor: 'rgba(241,245,249,0.06)', color: 'rgba(241,245,249,0.5)', border: '1px solid rgba(241,245,249,0.1)' }}>
             Edit
           </button>
@@ -170,6 +343,7 @@ function GameCard({ game, onDelete }: { game: Game; onDelete: () => void }) {
       </div>
     </div>
     {editing && <GameFormModal game={game} onClose={() => setEditing(false)} />}
+    {showRsvps && token && <RsvpListModal game={game} token={token} onClose={() => setShowRsvps(false)} />}
     </>
   )
 }
@@ -265,7 +439,11 @@ function SeasonAtAGlance({ games }: { games: Game[] }) {
 }
 
 // ── Upcoming View ─────────────────────────────────────────────────────────────
-function UpcomingView({ games }: { games: Game[] }) {
+function UpcomingView({ games, token, rsvpCountsMap }: {
+  games: Game[]
+  token?: string
+  rsvpCountsMap?: Record<string, { yes: number; no: number; maybe: number }>
+}) {
   const { mutateAsync: deleteGame } = useDeleteGame()
 
   const upcoming = games.filter(g => daysUntil(g.scheduled_at) >= 0)
@@ -283,7 +461,15 @@ function UpcomingView({ games }: { games: Game[] }) {
     <div className="space-y-6">
       {upcoming.length > 0 && (
         <div className="space-y-3">
-          {upcoming.map(g => <GameCard key={g.id} game={g} onDelete={() => deleteGame(g.id)} />)}
+          {upcoming.map(g => (
+            <GameCard
+              key={g.id}
+              game={g}
+              onDelete={() => deleteGame(g.id)}
+              token={token}
+              rsvpCounts={rsvpCountsMap?.[g.id]}
+            />
+          ))}
         </div>
       )}
       {past.length > 0 && (
@@ -301,8 +487,34 @@ function UpcomingView({ games }: { games: Game[] }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function GameDayPage() {
   const [showAdd, setShowAdd] = useState(false)
+  const [showShare, setShowShare] = useState(false)
   const { data: games = [], isLoading } = useGames()
+  const { activeTeamId } = useTeam()
+  const { data: tokenData } = useTeamToken(activeTeamId)
   const upcomingCount = games.filter(g => daysUntil(g.scheduled_at) >= 0).length
+
+  // Fetch RSVP counts for upcoming games
+  const [rsvpCountsMap, setRsvpCountsMap] = useState<Record<string, { yes: number; no: number; maybe: number }>>({})
+  useMemo(() => {
+    if (!tokenData?.token) return
+    const upcomingIds = games.filter(g => daysUntil(g.scheduled_at) >= 0).map(g => g.id)
+    if (upcomingIds.length === 0) return
+    const token = tokenData.token
+    Promise.all(
+      upcomingIds.map(id =>
+        fetch(`/api/parent/rsvp?gameId=${id}&token=${token}`)
+          .then(r => r.ok ? r.json() : null)
+          .then(data => data ? { id, counts: countRsvps(data.rsvps ?? []) } : null)
+          .catch(() => null)
+      )
+    ).then(results => {
+      const map: Record<string, { yes: number; no: number; maybe: number }> = {}
+      for (const r of results) {
+        if (r) map[r.id] = r.counts
+      }
+      setRsvpCountsMap(map)
+    })
+  }, [games, tokenData?.token])
 
   return (
     <div>
@@ -313,13 +525,24 @@ export default function GameDayPage() {
             {upcomingCount} upcoming game{upcomingCount !== 1 ? 's' : ''}
           </p>
         </div>
-        <button
-          onClick={() => setShowAdd(true)}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg transition-opacity hover:opacity-85"
-          style={{ backgroundColor: '#F7620A', color: '#fff' }}
-        >
-          <span>+</span> Add Game
-        </button>
+        <div className="flex items-center gap-2">
+          {tokenData && (
+            <button
+              onClick={() => setShowShare(true)}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-lg transition-opacity hover:opacity-85"
+              style={{ backgroundColor: 'rgba(241,245,249,0.07)', color: 'rgba(241,245,249,0.6)', border: '1px solid rgba(241,245,249,0.1)' }}
+            >
+              🔗 Share
+            </button>
+          )}
+          <button
+            onClick={() => setShowAdd(true)}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg transition-opacity hover:opacity-85"
+            style={{ backgroundColor: '#F7620A', color: '#fff' }}
+          >
+            <span>+</span> Add Game
+          </button>
+        </div>
       </div>
 
       {!isLoading && <SeasonAtAGlance games={games} />}
@@ -329,10 +552,19 @@ export default function GameDayPage() {
           <p className="text-sm" style={{ color: 'rgba(241,245,249,0.35)' }}>Loading...</p>
         </div>
       ) : (
-        <UpcomingView games={games} />
+        <UpcomingView games={games} token={tokenData?.token} rsvpCountsMap={rsvpCountsMap} />
       )}
 
       {showAdd && <GameFormModal onClose={() => setShowAdd(false)} />}
+      {showShare && tokenData && (
+        <ShareLinkModal token={tokenData.token} url={tokenData.url} onClose={() => setShowShare(false)} />
+      )}
     </div>
   )
+}
+
+function countRsvps(rsvps: RsvpEntry[]) {
+  const c = { yes: 0, no: 0, maybe: 0 }
+  for (const r of rsvps) c[r.response]++
+  return c
 }
