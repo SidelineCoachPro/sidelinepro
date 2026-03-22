@@ -179,9 +179,10 @@ function PracticeSummaryPanel({ event, onBack, onUnschedule }: {
 
 // ── Day Detail Popover ────────────────────────────────────────────────────────
 
-function DayDetailPopover({ dateStr, events, onClose, onUnschedule, onDeleteOther }: {
+function DayDetailPopover({ dateStr, events, rsvpCountsMap, onClose, onUnschedule, onDeleteOther }: {
   dateStr: string
   events: CalendarEvent[]
+  rsvpCountsMap: Record<string, { yes: number; no: number; maybe: number }>
   onClose: () => void
   onUnschedule: (planId: string) => void
   onDeleteOther: (id: string) => void
@@ -222,6 +223,7 @@ function DayDetailPopover({ dateStr, events, onClose, onUnschedule, onDeleteOthe
                   const d = daysFromToday(ev.date)
                   const isFinal = ev.gameStatus === 'final'
                   const won = (ev.ourScore ?? 0) > (ev.opponentScore ?? 0)
+                  const rc = rsvpCountsMap[ev.sourceId]
                   return (
                     <div key={ev.id} className="rounded-xl p-4" style={{ backgroundColor: `${EVENT_COLORS.game}12`, border: `1px solid ${EVENT_COLORS.game}30` }}>
                       <div className="flex items-start justify-between mb-2">
@@ -242,6 +244,19 @@ function DayDetailPopover({ dateStr, events, onClose, onUnschedule, onDeleteOthe
                         <p className="text-sm font-bold mb-2" style={{ color: won ? '#22C55E' : 'rgba(241,245,249,0.6)' }}>
                           {won ? 'W' : 'L'} {ev.ourScore} – {ev.opponentScore}
                         </p>
+                      )}
+                      {!isFinal && rc && (
+                        <div className="flex items-center gap-2 mb-3">
+                          {(rc.yes + rc.no + rc.maybe) === 0 ? (
+                            <span className="text-xs" style={{ color: 'rgba(241,245,249,0.25)' }}>No RSVPs yet</span>
+                          ) : (
+                            <>
+                              {rc.yes > 0 && <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(34,197,94,0.12)', color: '#22C55E' }}>{rc.yes} ✓</span>}
+                              {rc.no > 0 && <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(239,68,68,0.12)', color: '#EF4444' }}>{rc.no} ✗</span>}
+                              {rc.maybe > 0 && <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(245,183,49,0.12)', color: '#F5B731' }}>{rc.maybe} ?</span>}
+                            </>
+                          )}
+                        </div>
                       )}
                       <div className="flex gap-2 mt-3">
                         <Link href={`/game/${ev.sourceId}/lineup`} onClick={onClose} className="flex-1 py-2 text-center text-xs font-bold rounded-lg transition-opacity hover:opacity-80" style={{ backgroundColor: 'rgba(139,92,246,0.15)', color: '#8B5CF6', border: '1px solid rgba(139,92,246,0.3)' }}>
@@ -786,10 +801,11 @@ function WeekView({ weekStart, events, onDaySelect }: {
 
 // ── List View ──────────────────────────────────────────────────────────────────
 
-function ListView({ year, month, events, onDaySelect }: {
+function ListView({ year, month, events, rsvpCountsMap, onDaySelect }: {
   year: number
   month: number
   events: CalendarEvent[]
+  rsvpCountsMap: Record<string, { yes: number; no: number; maybe: number }>
   onDaySelect: (dateStr: string, evs: CalendarEvent[]) => void
 }) {
   const today = todayStr()
@@ -848,6 +864,24 @@ function ListView({ year, month, events, onDaySelect }: {
                   {ev.location && (
                     <p className="text-xs mt-0.5" style={{ color: 'rgba(241,245,249,0.4)' }}>{ev.location}</p>
                   )}
+                  {ev.type === 'game' && ev.gameStatus !== 'final' && (() => {
+                    const rc = rsvpCountsMap[ev.sourceId]
+                    if (!rc) return null
+                    const total = rc.yes + rc.no + rc.maybe
+                    return (
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        {total === 0 ? (
+                          <span className="text-xs" style={{ color: 'rgba(241,245,249,0.25)' }}>No RSVPs yet</span>
+                        ) : (
+                          <>
+                            {rc.yes > 0 && <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(34,197,94,0.12)', color: '#22C55E' }}>{rc.yes} ✓</span>}
+                            {rc.no > 0 && <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(239,68,68,0.12)', color: '#EF4444' }}>{rc.no} ✗</span>}
+                            {rc.maybe > 0 && <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(245,183,49,0.12)', color: '#F5B731' }}>{rc.maybe} ?</span>}
+                          </>
+                        )}
+                      </div>
+                    )
+                  })()}
                 </button>
               ))}
             </div>
@@ -912,6 +946,34 @@ function CalendarPageInner() {
   const [selectedDay,      setSelectedDay]      = useState<{ date: string; events: CalendarEvent[] } | null>(null)
   const [addModal,         setAddModal]          = useState<{ type?: 'game' | 'practice' | 'other'; date?: string } | null>(null)
   const [toastMsg,         setToastMsg]          = useState<string>('')
+  const [rsvpCountsMap,    setRsvpCountsMap]     = useState<Record<string, { yes: number; no: number; maybe: number }>>({})
+
+  // Fetch RSVP counts for game events
+  useEffect(() => {
+    if (!tokenData?.token) return
+    const gameIds = events
+      .filter(ev => ev.type === 'game' && ev.gameStatus !== 'final')
+      .map(ev => ev.sourceId)
+    if (gameIds.length === 0) return
+    const token = tokenData.token
+    Promise.all(
+      gameIds.map(id =>
+        fetch(`/api/parent/rsvp?gameId=${id}&token=${token}`)
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+            if (!data) return null
+            const c = { yes: 0, no: 0, maybe: 0 }
+            for (const r of data.rsvps ?? []) c[r.response as keyof typeof c]++
+            return { id, counts: c }
+          })
+          .catch(() => null)
+      )
+    ).then(results => {
+      const map: Record<string, { yes: number; no: number; maybe: number }> = {}
+      for (const r of results) { if (r) map[r.id] = r.counts }
+      setRsvpCountsMap(map)
+    })
+  }, [events, tokenData?.token])
 
   // Keyboard navigation
   useEffect(() => {
@@ -1099,6 +1161,7 @@ function CalendarPageInner() {
           year={year}
           month={month}
           events={events}
+          rsvpCountsMap={rsvpCountsMap}
           onDaySelect={(dateStr, evs) => setSelectedDay({ date: dateStr, events: evs })}
         />
       ) : events.length === 0 ? (
@@ -1120,6 +1183,7 @@ function CalendarPageInner() {
         <DayDetailPopover
           dateStr={selectedDay.date}
           events={selectedDay.events}
+          rsvpCountsMap={rsvpCountsMap}
           onClose={() => setSelectedDay(null)}
           onUnschedule={handleUnschedule}
           onDeleteOther={handleDeleteOther}
