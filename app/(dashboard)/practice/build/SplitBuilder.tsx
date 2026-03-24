@@ -568,7 +568,10 @@ export default function SplitBuilder({
               className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-opacity hover:opacity-85"
               style={{ backgroundColor: '#22C55E', color: '#fff' }}
             >
-              ▶ Start Practice
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                <path d="M2 1.5l8 4.5-8 4.5V1.5z"/>
+              </svg>
+              Start Practice
             </button>
           ) : <div />}
           <button

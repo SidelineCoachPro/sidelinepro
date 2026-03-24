@@ -235,11 +235,13 @@ function DayRow({
               </Link>
               <Link
                 href={`/practice/run?id=${plan.id}`}
-                className="px-3 py-3 text-xs font-bold transition-opacity hover:opacity-85"
+                className="flex items-center justify-center w-10 self-stretch transition-opacity hover:opacity-85"
                 style={{ backgroundColor: 'rgba(34,197,94,0.15)', color: '#22C55E' }}
                 title="Run practice"
               >
-                ▶
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor">
+                  <path d="M2 1.5l8 4.5-8 4.5V1.5z"/>
+                </svg>
               </Link>
             </div>
           ))}
