@@ -450,7 +450,7 @@ export default function ParentClient({
   rsvpCounts: RsvpCounts
   players: Player[]
 }) {
-  const [tab, setTab] = useState<'schedule' | 'results' | 'announcements'>('schedule')
+  const [tab, setTab] = useState<'schedule' | 'results' | 'announcements' | 'roster'>('schedule')
   const [liveCounts, setLiveCounts] = useState<RsvpCounts>(rsvpCounts)
   const [myRsvps, setMyRsvps] = useState<MyRsvps>({})
 
@@ -519,6 +519,7 @@ export default function ParentClient({
             { key: 'schedule',      label: 'Schedule' },
             { key: 'results',       label: 'Results' },
             { key: 'announcements', label: `Announcements${announcements.length > 0 ? ` (${announcements.length})` : ''}` },
+            { key: 'roster',        label: 'Roster' },
           ] as const).map(t => (
             <button
               key={t.key}
@@ -604,6 +605,38 @@ export default function ParentClient({
               </div>
             ) : (
               pastGames.map(game => <PastGameCard key={game.id} game={game} />)
+            )}
+          </>
+        )}
+
+        {/* ── Roster Tab ── */}
+        {tab === 'roster' && (
+          <>
+            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#94A3B8' }}>
+              Team Roster · {players.length} players
+            </p>
+            {players.length === 0 ? (
+              <div className="rounded-xl p-6 text-center" style={{ backgroundColor: '#fff', border: '1px solid #E2E8F0' }}>
+                <p className="text-sm" style={{ color: '#94A3B8' }}>No players on the roster yet.</p>
+              </div>
+            ) : (
+              <div className="rounded-xl overflow-hidden" style={{ backgroundColor: '#fff', border: '1px solid #E2E8F0' }}>
+                {players.map((player, i) => (
+                  <div
+                    key={player.id}
+                    className="flex items-center gap-3 px-4 py-3"
+                    style={{ borderBottom: i < players.length - 1 ? '1px solid #F1F5F9' : 'none' }}
+                  >
+                    <div
+                      className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+                      style={{ backgroundColor: `${team.color ?? '#F7620A'}18`, color: team.color ?? '#F7620A' }}
+                    >
+                      {player.name.charAt(0).toUpperCase()}
+                    </div>
+                    <p className="text-sm font-semibold" style={{ color: '#0F172A' }}>{player.name}</p>
+                  </div>
+                ))}
+              </div>
             )}
           </>
         )}
