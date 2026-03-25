@@ -235,6 +235,8 @@ function SortableItem({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: item.uid })
 
+  const isCustom = item.drillId?.startsWith('custom-')
+
   return (
     <div
       ref={setNodeRef}
@@ -246,7 +248,7 @@ function SortableItem({
       <button {...listeners} className="cursor-grab active:cursor-grabbing flex-shrink-0" style={{ color: 'rgba(241,245,249,0.2)', touchAction: 'none' }}>
         <GripIcon />
       </button>
-      <button onClick={onInfo} className="flex-1 min-w-0 text-left group" title="View details">
+      <button onClick={isCustom ? undefined : onInfo} className={`flex-1 min-w-0 text-left ${isCustom ? 'cursor-default' : 'group'}`} title={isCustom ? undefined : 'View details'}>
         <div className="flex items-center gap-1.5">
           {item.drillId?.startsWith('game-') && (
             <span className="text-xs px-1 py-0.5 rounded font-bold" style={{ backgroundColor: 'rgba(14,207,176,0.15)', color: '#0ECFB0' }}>GAME</span>
@@ -254,8 +256,11 @@ function SortableItem({
           {item.drillId?.startsWith('play-') && (
             <span className="text-xs px-1 py-0.5 rounded font-bold" style={{ backgroundColor: 'rgba(58,134,255,0.15)', color: '#3A86FF' }}>PLAY</span>
           )}
+          {isCustom && (
+            <span className="text-xs px-1 py-0.5 rounded font-bold" style={{ backgroundColor: 'rgba(139,92,246,0.15)', color: '#8B5CF6' }}>CUSTOM</span>
+          )}
           <span className="text-sm font-medium text-sp-text truncate group-hover:text-orange-400 transition-colors">{item.name}</span>
-          <span className="text-xs opacity-0 group-hover:opacity-60 transition-opacity flex-shrink-0" style={{ color: '#F7620A' }}>ℹ</span>
+          {!isCustom && <span className="text-xs opacity-0 group-hover:opacity-60 transition-opacity flex-shrink-0" style={{ color: '#F7620A' }}>ℹ</span>}
         </div>
         <span className="text-xs" style={{ color: 'rgba(241,245,249,0.35)' }}>
           {CATEGORY_LABELS[item.category] ?? item.category}
@@ -418,6 +423,9 @@ export default function SplitBuilder({
   const [activeTab, setActiveTab] = useState<LibTab>('drills')
   const [mobilePanel, setMobilePanel] = useState<'plan' | 'library'>('plan')
   const [detailItem, setDetailItem] = useState<DetailItem>(null)
+  const [customFormOpen, setCustomFormOpen] = useState(false)
+  const [customName, setCustomName] = useState('')
+  const [customDuration, setCustomDuration] = useState(10)
   const sensors = useSensors(useSensor(PointerSensor))
 
   const totalMins = items.reduce((s, d) => s + d.durationMins, 0)
@@ -432,6 +440,21 @@ export default function SplitBuilder({
 
   function addItem(item: PlanDrill) {
     setItems(prev => [...prev, item])
+  }
+
+  function addCustomItem() {
+    if (!customName.trim()) return
+    addItem({
+      uid: crypto.randomUUID(),
+      drillId: `custom-${crypto.randomUUID()}`,
+      name: customName.trim(),
+      category: 'custom',
+      categoryColor: '#8B5CF6',
+      durationMins: customDuration,
+    })
+    setCustomName('')
+    setCustomDuration(10)
+    setCustomFormOpen(false)
   }
 
   function toggleFocus(f: string) {
@@ -554,14 +577,65 @@ export default function SplitBuilder({
           )}
         </div>
 
-        {/* add water break */}
-        <button
-          onClick={() => addItem({ uid: crypto.randomUUID(), drillId: 'break', name: 'Water Break', category: 'break', categoryColor: '#6B7280', durationMins: 3 })}
-          className="mt-2 text-xs px-3 py-1.5 rounded-lg self-start transition-colors hover:opacity-70"
-          style={{ backgroundColor: 'rgba(241,245,249,0.06)', color: 'rgba(241,245,249,0.45)', border: '1px solid rgba(241,245,249,0.08)' }}
-        >
-          + Water Break
-        </button>
+        {/* add water break + custom item */}
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button
+            onClick={() => addItem({ uid: crypto.randomUUID(), drillId: 'break', name: 'Water Break', category: 'break', categoryColor: '#6B7280', durationMins: 3 })}
+            className="text-xs px-3 py-1.5 rounded-lg transition-colors hover:opacity-70"
+            style={{ backgroundColor: 'rgba(241,245,249,0.06)', color: 'rgba(241,245,249,0.45)', border: '1px solid rgba(241,245,249,0.08)' }}
+          >
+            + Water Break
+          </button>
+          {!customFormOpen && (
+            <button
+              onClick={() => setCustomFormOpen(true)}
+              className="text-xs px-3 py-1.5 rounded-lg transition-colors hover:opacity-70"
+              style={{ backgroundColor: 'rgba(139,92,246,0.1)', color: 'rgba(139,92,246,0.7)', border: '1px solid rgba(139,92,246,0.2)' }}
+            >
+              + Custom Item
+            </button>
+          )}
+        </div>
+        {customFormOpen && (
+          <div className="mt-2 flex flex-wrap items-center gap-2 p-2 rounded-lg" style={{ backgroundColor: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)' }}>
+            <input
+              autoFocus
+              value={customName}
+              onChange={e => setCustomName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') addCustomItem(); if (e.key === 'Escape') { setCustomFormOpen(false); setCustomName(''); setCustomDuration(10) } }}
+              placeholder="Item name…"
+              className="flex-1 text-sm rounded-md"
+              style={{ backgroundColor: 'rgba(241,245,249,0.07)', border: '1px solid rgba(241,245,249,0.1)', color: '#F1F5F9', padding: '5px 8px', outline: 'none', minWidth: 120 }}
+            />
+            <div className="flex items-center gap-1">
+              <input
+                type="number" min={1} max={120}
+                value={customDuration}
+                onChange={e => setCustomDuration(Math.max(1, parseInt(e.target.value) || 1))}
+                className="w-12 text-center text-sm rounded-md"
+                style={{ backgroundColor: 'rgba(241,245,249,0.07)', border: '1px solid rgba(241,245,249,0.1)', color: '#F1F5F9', padding: '5px 4px', outline: 'none' }}
+              />
+              <span className="text-xs" style={{ color: 'rgba(241,245,249,0.3)' }}>m</span>
+            </div>
+            <div className="flex gap-1">
+              <button
+                onClick={addCustomItem}
+                disabled={!customName.trim()}
+                className="text-xs px-3 py-1.5 rounded-lg disabled:opacity-40 transition-opacity hover:opacity-85"
+                style={{ backgroundColor: '#8B5CF6', color: '#fff' }}
+              >
+                Add
+              </button>
+              <button
+                onClick={() => { setCustomFormOpen(false); setCustomName(''); setCustomDuration(10) }}
+                className="text-xs px-3 py-1.5 rounded-lg transition-opacity hover:opacity-70"
+                style={{ backgroundColor: 'rgba(241,245,249,0.06)', color: 'rgba(241,245,249,0.45)', border: '1px solid rgba(241,245,249,0.08)' }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* footer actions */}
         <div className="flex items-center justify-between mt-4 pt-4" style={{ borderTop: '1px solid rgba(241,245,249,0.07)' }}>
