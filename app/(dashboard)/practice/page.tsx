@@ -466,15 +466,20 @@ function PracticeOverviewInner() {
               </h2>
               <div className="flex flex-wrap gap-2">
                 {unscheduled.map(plan => (
-                  <Link
-                    key={plan.id}
-                    href={`/practice/build/${plan.id}`}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all hover:opacity-85"
-                    style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.07)' }}
-                  >
-                    <span className="text-sp-text font-medium truncate max-w-[180px]">{plan.name}</span>
-                    <span className="text-xs" style={{ color: 'rgba(241,245,249,0.35)' }}>{plan.duration_mins}min</span>
-                  </Link>
+                  <div key={plan.id} className="flex items-center rounded-lg overflow-hidden" style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.07)' }}>
+                    <Link
+                      href={`/practice/build/${plan.id}`}
+                      className="flex items-center gap-2 px-3 py-2 text-sm transition-all hover:opacity-85"
+                    >
+                      <span className="text-sp-text font-medium truncate max-w-[180px]">{plan.name}</span>
+                      <span className="text-xs" style={{ color: 'rgba(241,245,249,0.35)' }}>{plan.duration_mins}min</span>
+                    </Link>
+                    <PracticePlanButton
+                      plan={plan}
+                      className="px-2.5 py-2 text-xs font-semibold transition-opacity hover:opacity-85"
+                      style={{ color: 'rgba(241,245,249,0.4)', borderLeft: '1px solid rgba(241,245,249,0.08)' }}
+                    />
+                  </div>
                 ))}
               </div>
             </div>
