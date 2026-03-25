@@ -725,10 +725,10 @@ export default function DashboardPage() {
                     <span className="text-xs" style={{ color: 'rgba(241,245,249,0.3)' }}>{recentPlan.drills.length} drills</span>
                   </div>
                   <div className="flex gap-2">
-                    <Link href="/practice/build/new" className="flex-1 py-2 text-center text-xs font-bold rounded-lg" style={{ backgroundColor: 'rgba(139,92,246,0.1)', color: '#8B5CF6', border: '1px solid rgba(139,92,246,0.2)' }}>
+                    <Link href={`/practice/build/${recentPlan.id}`} className="flex-1 py-2 text-center text-xs font-bold rounded-lg" style={{ backgroundColor: 'rgba(139,92,246,0.1)', color: '#8B5CF6', border: '1px solid rgba(139,92,246,0.2)' }}>
                       Edit Plan
                     </Link>
-                    <Link href="/practice/run" className="flex-1 py-2 text-center text-xs font-bold rounded-lg" style={{ backgroundColor: 'rgba(139,92,246,0.15)', color: '#8B5CF6', border: '1px solid rgba(139,92,246,0.3)' }}>
+                    <Link href={`/practice/run?id=${recentPlan.id}`} className="flex-1 py-2 text-center text-xs font-bold rounded-lg" style={{ backgroundColor: 'rgba(139,92,246,0.15)', color: '#8B5CF6', border: '1px solid rgba(139,92,246,0.3)' }}>
                       Start Practice →
                     </Link>
                   </div>

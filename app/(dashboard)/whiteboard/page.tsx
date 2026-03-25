@@ -150,6 +150,7 @@ function WhiteboardInner() {
   const searchParams = useSearchParams()
   const playId = searchParams.get('playId')
   const fromPractice = searchParams.get('from') === 'practice'
+  const fromPracticePlanId = searchParams.get('planId')
 
   // Three canvas refs: court (bottom) / drawings (middle) / overlay (top)
   const courtRef    = useRef<HTMLCanvasElement>(null)
@@ -593,7 +594,7 @@ function WhiteboardInner() {
       {/* Back to practice */}
       {fromPractice && (
         <button
-          onClick={() => router.push('/practice/run')}
+          onClick={() => router.push(fromPracticePlanId ? `/practice/run?id=${fromPracticePlanId}` : '/practice')}
           className="absolute top-3 left-3 flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium z-10"
           style={{ backgroundColor: 'rgba(14,21,32,0.95)', border: '1px solid rgba(241,245,249,0.15)', color: 'rgba(241,245,249,0.75)' }}
         >

@@ -468,7 +468,7 @@ function RunInner() {
                 onClick={() => {
                   setIsRunning(false)
                   setShowWhiteboardDialog(false)
-                  router.push(`/whiteboard?playId=${playData.id}&from=practice`)
+                  router.push(`/whiteboard?playId=${playData.id}&from=practice&planId=${planId}`)
                 }}
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-85"
                 style={{ backgroundColor: '#F7620A' }}
@@ -478,7 +478,7 @@ function RunInner() {
               <button
                 onClick={() => {
                   setShowWhiteboardDialog(false)
-                  router.push(`/whiteboard?playId=${playData.id}&from=practice`)
+                  router.push(`/whiteboard?playId=${playData.id}&from=practice&planId=${planId}`)
                 }}
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-85"
                 style={{ backgroundColor: 'rgba(241,245,249,0.08)', color: 'rgba(241,245,249,0.7)' }}

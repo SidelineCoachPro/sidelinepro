@@ -58,7 +58,7 @@ export default function EditPracticePage({ params }: { params: { planId: string 
         savedPlanId={planId}
         plan={plan}
         onSave={handleSave}
-        onStartRun={() => router.push(`/practice/run?planId=${planId}`)}
+        onStartRun={() => router.push(`/practice/run?id=${planId}`)}
         onBack={() => router.push('/practice')}
       />
     </div>
