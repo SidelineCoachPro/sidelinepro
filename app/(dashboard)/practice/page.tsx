@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import PracticeSubNav from './components/PracticeSubNav'
 import { usePracticePlans, type PracticePlan } from '@/hooks/usePracticePlans'
+import PracticePlanButton from '@/lib/pdf/PracticePlanButton'
 import { useSeasonPlans } from '@/hooks/useSeasonPlans'
 import { useGames, type Game } from '@/hooks/useGames'
 
@@ -233,6 +234,11 @@ function DayRow({
                   </p>
                 </div>
               </Link>
+              <PracticePlanButton
+                plan={plan}
+                className="flex items-center justify-center w-10 self-stretch text-xs font-semibold transition-opacity hover:opacity-85"
+                style={{ backgroundColor: 'rgba(241,245,249,0.06)', color: 'rgba(241,245,249,0.45)', borderLeft: '1px solid rgba(241,245,249,0.08)' }}
+              />
               <Link
                 href={`/practice/run?id=${plan.id}`}
                 className="flex items-center justify-center w-10 self-stretch transition-opacity hover:opacity-85"
