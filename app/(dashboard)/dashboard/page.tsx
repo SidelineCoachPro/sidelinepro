@@ -561,7 +561,7 @@ export default function DashboardPage() {
           <div className="space-y-4">
             {[
               { num: '①', label: 'Add your players',          href: '/players',         cta: 'Add Players' },
-              { num: '②', label: 'Build a practice plan',      href: '/practice/planner', cta: 'Create Plan' },
+              { num: '②', label: 'Build a practice plan',      href: '/practice/build/new', cta: 'Create Plan' },
               { num: '③', label: 'Schedule your first game',   href: '/game',            cta: 'Add Game' },
             ].map(step => (
               <div key={step.num} className="flex items-center justify-between gap-4">
@@ -687,7 +687,7 @@ export default function DashboardPage() {
                     {' · '}{nextPractice.drills.length} drills · {nextPractice.duration_mins} min
                   </p>
                   <div className="flex gap-2">
-                    <Link href="/practice/planner" className="flex-1 py-2 text-center text-xs font-bold rounded-lg" style={{ backgroundColor: 'rgba(14,207,176,0.1)', color: '#0ECFB0', border: '1px solid rgba(14,207,176,0.2)' }}>
+                    <Link href="/practice/build/new" className="flex-1 py-2 text-center text-xs font-bold rounded-lg" style={{ backgroundColor: 'rgba(14,207,176,0.1)', color: '#0ECFB0', border: '1px solid rgba(14,207,176,0.2)' }}>
                       View Plan
                     </Link>
                     <Link href={`/practice/run?id=${nextPractice.id}`} className="flex-1 py-2 text-center text-xs font-bold rounded-lg" style={{ backgroundColor: 'rgba(14,207,176,0.15)', color: '#0ECFB0', border: '1px solid rgba(14,207,176,0.3)' }}>
@@ -725,7 +725,7 @@ export default function DashboardPage() {
                     <span className="text-xs" style={{ color: 'rgba(241,245,249,0.3)' }}>{recentPlan.drills.length} drills</span>
                   </div>
                   <div className="flex gap-2">
-                    <Link href="/practice/planner" className="flex-1 py-2 text-center text-xs font-bold rounded-lg" style={{ backgroundColor: 'rgba(139,92,246,0.1)', color: '#8B5CF6', border: '1px solid rgba(139,92,246,0.2)' }}>
+                    <Link href="/practice/build/new" className="flex-1 py-2 text-center text-xs font-bold rounded-lg" style={{ backgroundColor: 'rgba(139,92,246,0.1)', color: '#8B5CF6', border: '1px solid rgba(139,92,246,0.2)' }}>
                       Edit Plan
                     </Link>
                     <Link href="/practice/run" className="flex-1 py-2 text-center text-xs font-bold rounded-lg" style={{ backgroundColor: 'rgba(139,92,246,0.15)', color: '#8B5CF6', border: '1px solid rgba(139,92,246,0.3)' }}>
@@ -736,7 +736,7 @@ export default function DashboardPage() {
               ) : (
                 <>
                   <p className="text-sm mb-2" style={{ color: 'rgba(241,245,249,0.4)' }}>No practice plans yet</p>
-                  <Link href="/practice/planner" className="text-sm font-semibold" style={{ color: '#F7620A' }}>+ Create Practice →</Link>
+                  <Link href="/practice/build/new" className="text-sm font-semibold" style={{ color: '#F7620A' }}>+ Create Practice →</Link>
                 </>
               )}
             </AccentCard>
@@ -805,7 +805,7 @@ export default function DashboardPage() {
               <SectionLabel>Quick Actions</SectionLabel>
               <div className="space-y-2">
                 {([
-                  { icon: '📋', label: 'New Practice Plan',  action: () => router.push('/practice/planner') },
+                  { icon: '📋', label: 'New Practice Plan',  action: () => router.push('/practice/build/new') },
                   { icon: '📊', label: 'Evaluate a Player',  action: () => router.push('/players?openEval=true') },
                   { icon: '🏀', label: 'Add a Game',          action: () => router.push('/game?openAdd=true') },
                   { icon: '📣', label: 'Message Parents',     action: openCommsPanel },

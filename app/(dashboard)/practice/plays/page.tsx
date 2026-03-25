@@ -256,7 +256,7 @@ export default function PlaysPage() {
     }
     localStorage.setItem('sp_queued_play', JSON.stringify(item))
     setToast(`"${play.name}" queued — taking you to the Planner…`)
-    setTimeout(() => router.push('/practice/planner'), 1200)
+    setTimeout(() => router.push('/practice/build/new'), 1200)
   }
 
   return (

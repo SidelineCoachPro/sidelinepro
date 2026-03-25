@@ -154,7 +154,7 @@ function PracticeSummaryPanel({ event, onBack, onUnschedule }: {
       {/* Action buttons */}
       <div className="flex gap-2 mt-auto pt-2">
         <Link
-          href={`/practice/planner`}
+          href={`/practice/build/new`}
           className="flex-1 py-2.5 text-center text-sm font-bold rounded-xl transition-opacity hover:opacity-80"
           style={{ backgroundColor: 'rgba(241,245,249,0.08)', color: 'rgba(241,245,249,0.7)', border: '1px solid rgba(241,245,249,0.12)' }}
         >
@@ -506,7 +506,7 @@ function AddEventModal({ defaultDate, defaultType, onClose }: {
               {!pPlanId && (
                 <p className="text-xs" style={{ color: 'rgba(241,245,249,0.35)' }}>
                   Or{' '}
-                  <Link href="/practice/planner" className="underline" style={{ color: EVENT_COLORS.practice }}>create a new plan</Link>
+                  <Link href="/practice/build/new" className="underline" style={{ color: EVENT_COLORS.practice }}>create a new plan</Link>
                   {' '}first, then schedule it here.
                 </p>
               )}
