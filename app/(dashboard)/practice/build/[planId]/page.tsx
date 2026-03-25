@@ -56,6 +56,7 @@ export default function EditPracticePage({ params }: { params: { planId: string 
         initialDrills={plan.drills.map(d => ({ ...d, uid: d.uid || crypto.randomUUID() }))}
         isSaving={updatePlan.isPending}
         savedPlanId={planId}
+        plan={plan}
         onSave={handleSave}
         onStartRun={() => router.push(`/practice/run?planId=${planId}`)}
         onBack={() => router.push('/practice')}

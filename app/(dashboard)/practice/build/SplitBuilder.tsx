@@ -8,7 +8,8 @@ import {
   SortableContext, verticalListSortingStrategy, arrayMove, useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { type PlanDrill } from '@/hooks/usePracticePlans'
+import { type PlanDrill, type PracticePlan } from '@/hooks/usePracticePlans'
+import PracticePlanButton from '@/lib/pdf/PracticePlanButton'
 import { drills, type Drill, CATEGORY_COLORS, CATEGORY_LABELS } from '@/data/drills'
 import { practiceGames, type PracticeGame, GAME_CATEGORY_COLORS } from '@/data/practiceGames'
 import { PLAYS, type Play, PLAY_CATEGORY_COLORS, PLAY_CATEGORY_LABELS } from '@/data/plays'
@@ -388,6 +389,7 @@ export interface SplitBuilderProps {
   initialDrills: PlanDrill[]
   isSaving: boolean
   savedPlanId: string | null
+  plan?: PracticePlan
   onSave: (name: string, date: string | null, items: PlanDrill[]) => void
   onStartRun?: () => void
   onBack: () => void
@@ -404,6 +406,7 @@ export default function SplitBuilder({
   initialDrills,
   isSaving,
   savedPlanId,
+  plan,
   onSave,
   onStartRun,
   onBack,
@@ -574,14 +577,23 @@ export default function SplitBuilder({
               Start Practice
             </button>
           ) : <div />}
-          <button
-            onClick={() => onSave(name, date || null, items)}
-            disabled={isSaving || !name.trim()}
-            className="px-5 py-2 text-sm font-semibold rounded-lg disabled:opacity-50 transition-opacity hover:opacity-85"
-            style={{ backgroundColor: '#F7620A', color: '#fff' }}
-          >
-            {isSaving ? 'Saving…' : savedPlanId ? '✓ Save Changes' : 'Save Plan'}
-          </button>
+          <div className="flex items-center gap-2">
+            {plan && (
+              <PracticePlanButton
+                plan={plan}
+                className="px-4 py-2 text-sm font-semibold rounded-lg transition-opacity hover:opacity-85"
+                style={{ backgroundColor: 'rgba(241,245,249,0.08)', color: 'rgba(241,245,249,0.6)', border: '1px solid rgba(241,245,249,0.12)' }}
+              />
+            )}
+            <button
+              onClick={() => onSave(name, date || null, items)}
+              disabled={isSaving || !name.trim()}
+              className="px-5 py-2 text-sm font-semibold rounded-lg disabled:opacity-50 transition-opacity hover:opacity-85"
+              style={{ backgroundColor: '#F7620A', color: '#fff' }}
+            >
+              {isSaving ? 'Saving…' : savedPlanId ? '✓ Save Changes' : 'Save Plan'}
+            </button>
+          </div>
         </div>
       </div>
 
