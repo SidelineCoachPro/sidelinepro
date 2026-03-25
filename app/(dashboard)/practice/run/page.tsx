@@ -116,7 +116,7 @@ function RunInner() {
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-sp-text text-lg font-semibold">No practice plan selected</p>
         <button
-          onClick={() => router.push('/practice/planner')}
+          onClick={() => router.push('/practice')}
           className="px-5 py-2 text-sm font-semibold rounded-lg transition-opacity hover:opacity-85"
           style={{ backgroundColor: '#F7620A', color: '#fff' }}
         >
@@ -139,7 +139,7 @@ function RunInner() {
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-sp-text">Practice plan not found</p>
         <button
-          onClick={() => router.push('/practice/planner')}
+          onClick={() => router.push('/practice')}
           className="px-5 py-2 text-sm font-semibold rounded-lg"
           style={{ backgroundColor: '#F7620A', color: '#fff' }}
         >
@@ -179,7 +179,7 @@ function RunInner() {
             Run Again
           </button>
           <button
-            onClick={() => router.push('/practice/planner')}
+            onClick={() => router.push('/practice')}
             className="px-5 py-2.5 text-sm font-semibold rounded-lg transition-opacity hover:opacity-85"
             style={{ backgroundColor: '#F7620A', color: '#fff' }}
           >
@@ -207,7 +207,7 @@ function RunInner() {
           </p>
         </div>
         <button
-          onClick={() => router.push('/practice/planner')}
+          onClick={() => router.push('/practice')}
           className="text-sm transition-opacity hover:opacity-60"
           style={{ color: 'rgba(241,245,249,0.4)' }}
         >
