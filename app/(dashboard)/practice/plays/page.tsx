@@ -28,13 +28,13 @@ const DIFFICULTY_CONFIG: Record<PlayDifficulty, { color: string; bg: string }> =
 
 const CATEGORIES: Array<{ key: string; label: string }> = [
   { key: 'all',        label: 'All' },
-  { key: 'my',         label: 'My Plays' },
   { key: 'halfcourt',  label: 'Half Court' },
   { key: 'inbounds',   label: 'Inbounds' },
   { key: 'defense',    label: 'Defense' },
   { key: 'special',    label: 'Special' },
   { key: 'transition', label: 'Transition' },
   { key: 'timeout',    label: 'Timeout' },
+  { key: 'my',         label: 'My Plays' },
 ]
 
 const DIFFICULTIES: Array<PlayDifficulty | 'all'> = ['all', 'beg', 'int', 'adv']

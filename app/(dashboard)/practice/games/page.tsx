@@ -25,13 +25,13 @@ const ENERGY_CONFIG: Record<PracticeGame['energyLevel'], { color: string; bg: st
 
 const CATEGORIES = [
   { key: 'all',          label: 'All' },
-  { key: 'my',           label: 'My Games' },
   { key: 'ballhandling', label: 'Ball Handling' },
   { key: 'shooting',     label: 'Shooting' },
   { key: 'competitive',  label: 'Competitive' },
   { key: 'defense',      label: 'Defense' },
   { key: 'warmup',       label: 'Warmup / Fun' },
   { key: 'team',         label: 'Team' },
+  { key: 'my',           label: 'My Games' },
 ]
 
 const ENERGY_LEVELS: Array<PracticeGame['energyLevel'] | 'all'> = [
