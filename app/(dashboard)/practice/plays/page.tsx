@@ -12,8 +12,10 @@ import {
   type PlayCategory,
   type PlayDifficulty,
 } from '@/data/plays'
+import { useCustomPlays } from '@/hooks/useCustomPlays'
 import { type PlanDrill } from '@/hooks/usePracticePlans'
 import PlayDiagram from '@/components/plays/PlayDiagram'
+import CreatePlayModal from './CreatePlayModal'
 import PracticeSubNav from '../components/PracticeSubNav'
 
 const barlow = Barlow_Condensed({ subsets: ['latin'], weight: '700' })
@@ -26,6 +28,7 @@ const DIFFICULTY_CONFIG: Record<PlayDifficulty, { color: string; bg: string }> =
 
 const CATEGORIES: Array<{ key: string; label: string }> = [
   { key: 'all',        label: 'All' },
+  { key: 'my',         label: 'My Plays' },
   { key: 'halfcourt',  label: 'Half Court' },
   { key: 'inbounds',   label: 'Inbounds' },
   { key: 'defense',    label: 'Defense' },
@@ -227,10 +230,36 @@ export default function PlaysPage() {
   const [activeCategory, setCategory] = useState('all')
   const [activeDifficulty, setDiff]   = useState<PlayDifficulty | 'all'>('all')
   const [toast, setToast]             = useState('')
+  const [isModalOpen, setModalOpen]   = useState(false)
+
+  const { data: customPlayRows = [] } = useCustomPlays()
+
+  const allPlays: Play[] = useMemo(() => {
+    const custom: Play[] = customPlayRows.map(p => ({
+      id: p.id,
+      name: p.name,
+      category: p.category as PlayCategory,
+      categoryColor: PLAY_CATEGORY_COLORS[p.category as PlayCategory] ?? '#8B5CF6',
+      difficulty: p.difficulty as PlayDifficulty,
+      type: p.type,
+      description: p.description,
+      teachingKeys: p.teaching_keys,
+      steps: p.steps.map((s, i) => ({ step: i + 1, description: s })),
+      agents: [],
+      ballStartX: 0.5,
+      ballStartY: 0.85,
+      ballEndX: 0.5,
+      ballEndY: 0.85,
+      suggestedDurationMins: p.suggested_duration_mins,
+      isCustom: true,
+    } as Play & { isCustom: boolean }))
+    return [...custom, ...PLAYS]
+  }, [customPlayRows])
 
   const filtered = useMemo(() => {
-    let result = PLAYS
-    if (activeCategory !== 'all') result = result.filter(p => p.category === activeCategory)
+    let result = allPlays
+    if (activeCategory === 'my') result = result.filter(p => (p as Play & { isCustom?: boolean }).isCustom)
+    else if (activeCategory !== 'all') result = result.filter(p => p.category === activeCategory)
     if (activeDifficulty !== 'all') result = result.filter(p => p.difficulty === activeDifficulty)
     if (search.trim()) {
       const s = search.toLowerCase()
@@ -243,7 +272,7 @@ export default function PlaysPage() {
       )
     }
     return result
-  }, [activeCategory, activeDifficulty, search])
+  }, [allPlays, activeCategory, activeDifficulty, search])
 
   function handleAdd(play: Play) {
     const item: PlanDrill = {
@@ -268,12 +297,16 @@ export default function PlaysPage() {
         <div>
           <h1 className="text-2xl font-bold text-sp-text">Play Library</h1>
           <p className="text-sm mt-0.5" style={{ color: 'rgba(241,245,249,0.4)' }}>
-            Offensive sets, defensive schemes, and special situations with X&apos;s and O&apos;s diagrams.
+            {filtered.length} play{filtered.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <span className="text-sm flex-shrink-0 ml-4" style={{ color: 'rgba(241,245,249,0.35)' }}>
-          {filtered.length} play{filtered.length !== 1 ? 's' : ''}
-        </span>
+        <button
+          onClick={() => setModalOpen(true)}
+          className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg transition-opacity hover:opacity-85"
+          style={{ backgroundColor: '#3A86FF', color: '#fff' }}
+        >
+          <span>+</span> New Play
+        </button>
       </div>
 
       {/* Search */}
@@ -355,6 +388,8 @@ export default function PlaysPage() {
           ✓ {toast}
         </div>
       )}
+
+      {isModalOpen && <CreatePlayModal onClose={() => setModalOpen(false)} />}
     </div>
   )
 }

@@ -9,7 +9,9 @@ import {
   GAME_CATEGORY_LABELS,
   type PracticeGame,
 } from '@/data/practiceGames'
+import { useCustomGames } from '@/hooks/useCustomGames'
 import { type PlanDrill } from '@/hooks/usePracticePlans'
+import CreateGameModal from './CreateGameModal'
 import PracticeSubNav from '../components/PracticeSubNav'
 
 const barlow = Barlow_Condensed({ subsets: ['latin'], weight: '700' })
@@ -23,6 +25,7 @@ const ENERGY_CONFIG: Record<PracticeGame['energyLevel'], { color: string; bg: st
 
 const CATEGORIES = [
   { key: 'all',          label: 'All' },
+  { key: 'my',           label: 'My Games' },
   { key: 'ballhandling', label: 'Ball Handling' },
   { key: 'shooting',     label: 'Shooting' },
   { key: 'competitive',  label: 'Competitive' },
@@ -225,11 +228,36 @@ export default function PracticeGamesPage() {
   const [activeCategory, setCategory] = useState('all')
   const [activeEnergy, setEnergy]     = useState<PracticeGame['energyLevel'] | 'all'>('all')
   const [toast, setToast]             = useState('')
+  const [isModalOpen, setModalOpen]   = useState(false)
+
+  const { data: customGameRows = [] } = useCustomGames()
+
+  const allGames: PracticeGame[] = useMemo(() => {
+    const custom: PracticeGame[] = customGameRows.map(g => ({
+      id: g.id,
+      name: g.name,
+      category: g.category as PracticeGame['category'],
+      categoryColor: GAME_CATEGORY_COLORS[g.category as PracticeGame['category']] ?? '#8B5CF6',
+      durationMins: g.duration_mins,
+      playersMin: g.players_min,
+      playersMax: g.players_max,
+      energyLevel: g.energy_level as PracticeGame['energyLevel'],
+      skillFocus: g.skill_focus,
+      description: g.description,
+      setup: g.setup ?? '',
+      howToPlay: g.how_to_play ?? '',
+      coachingTips: g.coaching_tips,
+      variations: g.variations,
+      isCustom: true,
+    } as PracticeGame & { isCustom: boolean }))
+    return [...custom, ...practiceGames]
+  }, [customGameRows])
 
   const filtered = useMemo(() => {
-    let result = practiceGames
-    if (activeCategory !== 'all') result = result.filter(g => g.category === activeCategory)
-    if (activeEnergy !== 'all')   result = result.filter(g => g.energyLevel === activeEnergy)
+    let result = allGames
+    if (activeCategory === 'my') result = result.filter(g => (g as PracticeGame & { isCustom?: boolean }).isCustom)
+    else if (activeCategory !== 'all') result = result.filter(g => g.category === activeCategory)
+    if (activeEnergy !== 'all') result = result.filter(g => g.energyLevel === activeEnergy)
     if (search.trim()) {
       const s = search.toLowerCase()
       result = result.filter(
@@ -240,7 +268,7 @@ export default function PracticeGamesPage() {
       )
     }
     return result
-  }, [activeCategory, activeEnergy, search])
+  }, [allGames, activeCategory, activeEnergy, search])
 
   function handleAdd(game: PracticeGame) {
     const item: PlanDrill = {
@@ -263,14 +291,18 @@ export default function PracticeGamesPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-sp-text">Practice Games</h1>
+          <h1 className="text-2xl font-bold text-sp-text">Game Library</h1>
           <p className="text-sm mt-0.5" style={{ color: 'rgba(241,245,249,0.4)' }}>
-            Competitive games that build skills through fun. Use these to end practice on a high note or change the energy.
+            {filtered.length} game{filtered.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <span className="text-sm flex-shrink-0 ml-4" style={{ color: 'rgba(241,245,249,0.35)' }}>
-          {filtered.length} game{filtered.length !== 1 ? 's' : ''}
-        </span>
+        <button
+          onClick={() => setModalOpen(true)}
+          className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg transition-opacity hover:opacity-85"
+          style={{ backgroundColor: '#0ECFB0', color: '#0A1019' }}
+        >
+          <span>+</span> New Game
+        </button>
       </div>
 
       {/* Search */}
@@ -352,6 +384,8 @@ export default function PracticeGamesPage() {
           ✓ {toast}
         </div>
       )}
+
+      {isModalOpen && <CreateGameModal onClose={() => setModalOpen(false)} />}
     </div>
   )
 }
