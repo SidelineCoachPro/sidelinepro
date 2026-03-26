@@ -26,6 +26,7 @@ const CATEGORIES = [
   { key: 'ballhandling', label: 'Ball Handling' },
   { key: 'shooting',     label: 'Shooting' },
   { key: 'competitive',  label: 'Competitive' },
+  { key: 'defense',      label: 'Defense' },
   { key: 'warmup',       label: 'Warmup / Fun' },
   { key: 'team',         label: 'Team' },
 ]
