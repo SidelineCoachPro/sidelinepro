@@ -59,6 +59,21 @@ export const PLAY_DIFFICULTY_LABELS: Record<PlayDifficulty, string> = {
   adv: 'Advanced',
 }
 
+import { PLAYS_EXPANDED, type PlayExpanded } from './drills_expanded'
+
+function expandedToPlay(p: PlayExpanded): Play {
+  return {
+    ...p,
+    category: p.category as PlayCategory,
+    steps: p.steps.map(s => ({ step: s.order, description: s.description })),
+    agents: [],
+    ballStartX: 0.5,
+    ballStartY: 0.85,
+    ballEndX: 0.5,
+    ballEndY: 0.85,
+  }
+}
+
 export const PLAYS: Play[] = [
   {
     id: 'hc-001',
@@ -633,4 +648,5 @@ export const PLAYS: Play[] = [
     ballEndY: 0.14,
     suggestedDurationMins: 12,
   },
+  ...PLAYS_EXPANDED.map(expandedToPlay),
 ]

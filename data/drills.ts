@@ -34,6 +34,8 @@ export const CATEGORY_LABELS: Record<string, string> = {
   team: 'Team',
 }
 
+import { DRILLS_EXPANDED } from './drills_expanded'
+
 export const drills: Drill[] = [
   // ── BALL HANDLING ────────────────────────────────────────────
   {
@@ -486,4 +488,5 @@ export const drills: Drill[] = [
     progression: 'Add constraints: must make 3 passes before shooting. Full court scrimmage.',
     tags: ['scrimmage', 'half court', 'live play', 'team concepts', 'competitive', '5-on-5'],
   },
+  ...DRILLS_EXPANDED,
 ]

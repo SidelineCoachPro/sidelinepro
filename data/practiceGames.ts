@@ -1,7 +1,7 @@
 export interface PracticeGame {
   id: string
   name: string
-  category: 'ballhandling' | 'shooting' | 'competitive' | 'warmup' | 'team'
+  category: 'ballhandling' | 'shooting' | 'competitive' | 'warmup' | 'team' | 'defense'
   categoryColor: string
   durationMins: number
   playersMin: number
@@ -14,6 +14,7 @@ export interface PracticeGame {
   coachingTips: string[]
   variations?: string[]
   ageMin?: number
+  level?: 'Beginner' | 'Intermediate' | 'Advanced' | 'All levels'
 }
 
 export const GAME_CATEGORY_COLORS: Record<PracticeGame['category'], string> = {
@@ -22,6 +23,7 @@ export const GAME_CATEGORY_COLORS: Record<PracticeGame['category'], string> = {
   competitive:  '#EF4444',
   warmup:       '#F5B731',
   team:         '#8B5CF6',
+  defense:      '#22C55E',
 }
 
 export const GAME_CATEGORY_LABELS: Record<PracticeGame['category'], string> = {
@@ -30,7 +32,10 @@ export const GAME_CATEGORY_LABELS: Record<PracticeGame['category'], string> = {
   competitive:  'Competitive',
   warmup:       'Warmup / Fun',
   team:         'Team',
+  defense:      'Defense',
 }
+
+import { PRACTICE_GAMES_EXPANDED } from './drills_expanded'
 
 export const practiceGames: PracticeGame[] = [
   {
@@ -303,4 +308,5 @@ export const practiceGames: PracticeGame[] = [
       'Use as a season-long tracking tool — teams love beating their record',
     ],
   },
+  ...PRACTICE_GAMES_EXPANDED,
 ]
