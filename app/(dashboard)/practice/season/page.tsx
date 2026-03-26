@@ -685,15 +685,19 @@ function Step2Phases({ phases, totalWeeks, onChange, onNext, onBack }: {
 
 // ── Step 3: Weekly Arc ────────────────────────────────────────────────────────
 
-function Step3WeeklyArc({ weeks, phases, teamWeaknesses, onWeeksChange, onNext, onBack }: {
+function Step3WeeklyArc({ weeks, phases, teamWeaknesses, onWeeksChange, onNext, onBack, setup, themeSequence }: {
   weeks: WeeklyFocus[]
   phases: SeasonPhase[]
   teamWeaknesses: string[]
   onWeeksChange: (weeks: WeeklyFocus[]) => void
   onNext: () => void
   onBack: () => void
+  setup: SetupData
+  themeSequence: string[]
 }) {
   const [editingCell, setEditingCell] = useState<{ week: number; field: 'primaryFocus' | 'secondaryFocus' | 'intensity' } | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiError, setAiError] = useState('')
 
   function updateWeek(weekNum: number, updates: Partial<WeeklyFocus>) {
     onWeeksChange(weeks.map(w => w.week === weekNum ? { ...w, ...updates } : w))
@@ -701,18 +705,78 @@ function Step3WeeklyArc({ weeks, phases, teamWeaknesses, onWeeksChange, onNext, 
 
   const phaseName = (week: number) => getPhaseName(week, phases)
 
+  async function handleAiEnhance() {
+    setAiLoading(true)
+    setAiError('')
+    try {
+      const res = await fetch('/api/ai/weekly-arc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          totalWeeks: weeks.length,
+          phases: phases.map(p => ({
+            name: p.name,
+            startWeek: p.startWeek,
+            endWeek: p.endWeek,
+            focusAreas: p.focusAreas,
+            intensity: p.intensity,
+          })),
+          teamWeaknesses,
+          seasonType: setup.seasonType,
+          ageGroup: setup.ageGroup,
+          skillLevel: setup.skillLevel,
+          characterThemes: themeSequence,
+        }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      if (Array.isArray(data.weeks) && data.weeks.length === weeks.length) {
+        onWeeksChange(data.weeks as WeeklyFocus[])
+      } else {
+        throw new Error('AI returned wrong number of weeks')
+      }
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'Failed to enhance arc')
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
-      {teamWeaknesses.length > 0 && (
-        <div className="flex items-start gap-3 px-4 py-3 rounded-xl" style={{ backgroundColor: 'rgba(247,98,10,0.08)', border: '1px solid rgba(247,98,10,0.2)' }}>
-          <span style={{ color: '#F7620A' }}>📊</span>
-          <div>
-            <p className="text-xs font-semibold" style={{ color: '#F7620A' }}>Using your team&apos;s eval data</p>
-            <p className="text-xs mt-0.5" style={{ color: 'rgba(241,245,249,0.5)' }}>
-              Lowest scoring skills — {teamWeaknesses.join(', ')} — have been weighted for more focus weeks.
-            </p>
-          </div>
+      {/* AI Enhance button */}
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+          {teamWeaknesses.length > 0 && (
+            <div className="flex items-start gap-3 px-4 py-3 rounded-xl" style={{ backgroundColor: 'rgba(247,98,10,0.08)', border: '1px solid rgba(247,98,10,0.2)' }}>
+              <span style={{ color: '#F7620A' }}>📊</span>
+              <div>
+                <p className="text-xs font-semibold" style={{ color: '#F7620A' }}>Using your team&apos;s eval data</p>
+                <p className="text-xs mt-0.5" style={{ color: 'rgba(241,245,249,0.5)' }}>
+                  Lowest scoring skills — {teamWeaknesses.join(', ')} — have been weighted for more focus weeks.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
+        <button
+          onClick={handleAiEnhance}
+          disabled={aiLoading}
+          className="ml-3 flex-shrink-0 flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg transition-opacity hover:opacity-85 disabled:opacity-40"
+          style={{ backgroundColor: 'rgba(58,134,255,0.12)', color: '#3A86FF', border: '1px solid rgba(58,134,255,0.25)' }}
+        >
+          {aiLoading ? (
+            <>
+              <span className="w-3 h-3 rounded-full border-2 border-t-transparent animate-spin inline-block" style={{ borderColor: '#3A86FF', borderTopColor: 'transparent' }} />
+              Enhancing…
+            </>
+          ) : (
+            <>🤖 AI Enhance</>
+          )}
+        </button>
+      </div>
+      {aiError && (
+        <p className="text-xs px-3 py-2 rounded-lg" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#EF4444' }}>{aiError}</p>
       )}
 
       <div className="overflow-x-auto rounded-xl" style={{ border: '1px solid rgba(241,245,249,0.07)' }}>
@@ -1457,7 +1521,7 @@ export default function SeasonPlanPage() {
         <Step2Phases phases={phases} totalWeeks={totalWeeks} onChange={setPhases} onNext={() => goToStep(2)} onBack={() => setStep(0)} />
       )}
       {step === 2 && (
-        <Step3WeeklyArc weeks={weeklyArc} phases={phases} teamWeaknesses={teamWeaknesses} onWeeksChange={setWeeklyArc} onNext={() => setStep(3)} onBack={() => setStep(1)} />
+        <Step3WeeklyArc weeks={weeklyArc} phases={phases} teamWeaknesses={teamWeaknesses} onWeeksChange={setWeeklyArc} onNext={() => setStep(3)} onBack={() => setStep(1)} setup={setup} themeSequence={themeSequence} />
       )}
       {step === 3 && (
         <Step4Characters sequence={themeSequence} totalWeeks={totalWeeks} onChange={setThemeSequence} onNext={() => setStep(4)} onBack={() => setStep(2)} />

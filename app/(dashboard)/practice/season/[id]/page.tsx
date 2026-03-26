@@ -10,6 +10,7 @@ import {
   type WeeklyFocus,
 } from '@/hooks/useSeasonPlans'
 import { usePracticePlans, type PracticePlan } from '@/hooks/usePracticePlans'
+import { useEvaluations } from '@/hooks/useEvaluations'
 import PracticeSubNav from '../../components/PracticeSubNav'
 
 const barlow = Barlow_Condensed({ subsets: ['latin'], weight: '900' })
@@ -607,14 +608,179 @@ function EmptyState({ plan }: { plan: SeasonPlan }) {
   )
 }
 
+// ── Mid-Season Assessment Modal ────────────────────────────────────────────────
+
+interface AssessmentResult {
+  summary: string
+  strengths: string[]
+  concerns: string[]
+  practiceAdjustments: string[]
+  phaseRecommendation: string
+}
+
+function AssessmentModal({
+  plan,
+  currentWeek,
+  teamAvgScores,
+  recentFocusAreas,
+  practiceCount,
+  onClose,
+}: {
+  plan: SeasonPlan
+  currentWeek: number
+  teamAvgScores: Record<string, number>
+  recentFocusAreas: string[]
+  practiceCount: number
+  onClose: () => void
+}) {
+  const [state, setState] = useState<'loading' | 'done' | 'error'>('loading')
+  const [result, setResult] = useState<AssessmentResult | null>(null)
+  const [errMsg, setErrMsg] = useState('')
+
+  const currentPhase = plan.phases.find(
+    p => currentWeek >= p.startWeek && currentWeek <= p.endWeek
+  )?.name ?? 'Season'
+
+  useEffect(() => {
+    fetch('/api/ai/assessment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        seasonName: plan.name,
+        currentWeek,
+        totalWeeks: plan.total_weeks,
+        currentPhase,
+        teamAvgScores,
+        recentFocusAreas,
+        practiceCount,
+      }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) throw new Error(data.error)
+        setResult(data as AssessmentResult)
+        setState('done')
+      })
+      .catch(err => {
+        setErrMsg(err.message)
+        setState('error')
+      })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div
+        className="w-full max-w-lg rounded-xl flex flex-col overflow-hidden"
+        style={{ backgroundColor: '#0E1520', border: '1px solid rgba(241,245,249,0.07)', maxHeight: '90vh' }}
+      >
+        <div className="flex items-center justify-between px-6 py-4 flex-shrink-0" style={{ borderBottom: '1px solid rgba(241,245,249,0.07)' }}>
+          <div>
+            <h2 className="text-base font-semibold text-sp-text">🤖 Mid-Season Assessment</h2>
+            <p className="text-xs mt-0.5" style={{ color: 'rgba(241,245,249,0.4)' }}>
+              Week {currentWeek} of {plan.total_weeks} — {currentPhase}
+            </p>
+          </div>
+          <button onClick={onClose} style={{ color: 'rgba(241,245,249,0.4)' }} className="hover:opacity-60 transition-opacity text-lg leading-none">✕</button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 px-6 py-5">
+          {state === 'loading' && (
+            <div className="flex flex-col items-center justify-center py-16 gap-4">
+              <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#3A86FF', borderTopColor: 'transparent' }} />
+              <p className="text-sm" style={{ color: 'rgba(241,245,249,0.4)' }}>Analyzing your season…</p>
+            </div>
+          )}
+
+          {state === 'error' && (
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
+              <p className="text-sm font-semibold text-sp-text">Failed to generate assessment</p>
+              <p className="text-xs" style={{ color: 'rgba(241,245,249,0.4)' }}>{errMsg}</p>
+            </div>
+          )}
+
+          {state === 'done' && result && (
+            <div className="space-y-5">
+              {/* Summary */}
+              <div className="px-4 py-3 rounded-xl" style={{ backgroundColor: 'rgba(58,134,255,0.08)', border: '1px solid rgba(58,134,255,0.2)' }}>
+                <p className="text-sm leading-relaxed" style={{ color: 'rgba(241,245,249,0.75)' }}>{result.summary}</p>
+              </div>
+
+              {/* Strengths */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'rgba(241,245,249,0.35)' }}>Team Strengths</p>
+                <ul className="space-y-2">
+                  {result.strengths.map((s, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span style={{ color: '#22C55E', flexShrink: 0 }}>✓</span>
+                      <p className="text-sm" style={{ color: 'rgba(241,245,249,0.65)' }}>{s}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Concerns */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'rgba(241,245,249,0.35)' }}>Areas of Concern</p>
+                <ul className="space-y-2">
+                  {result.concerns.map((c, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span style={{ color: '#F5B731', flexShrink: 0 }}>!</span>
+                      <p className="text-sm" style={{ color: 'rgba(241,245,249,0.65)' }}>{c}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Practice Adjustments */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'rgba(241,245,249,0.35)' }}>Recommended Practice Adjustments</p>
+                <ul className="space-y-2">
+                  {result.practiceAdjustments.map((a, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span style={{ color: '#3A86FF', flexShrink: 0 }}>→</span>
+                      <p className="text-sm" style={{ color: 'rgba(241,245,249,0.65)' }}>{a}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Phase Recommendation */}
+              <div className="px-4 py-3 rounded-xl" style={{ backgroundColor: 'rgba(247,98,10,0.08)', border: '1px solid rgba(247,98,10,0.2)' }}>
+                <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#F7620A' }}>Phase Recommendation</p>
+                <p className="text-sm leading-relaxed" style={{ color: 'rgba(241,245,249,0.65)' }}>{result.phaseRecommendation}</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex-shrink-0 px-6 py-4 flex justify-end" style={{ borderTop: '1px solid rgba(241,245,249,0.07)' }}>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium rounded-lg"
+            style={{ color: 'rgba(241,245,249,0.5)' }}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function SeasonDetailPage({ params }: { params: { id: string } }) {
   const { data: plan, isLoading } = useSeasonPlan(params.id)
   const { data: allPlans = [] } = usePracticePlans()
+  const { data: allEvals = [] } = useEvaluations()
 
   const [collapsedPhases, setCollapsedPhases] = useState<Set<string>>(() => new Set())
   const [jumpWeek, setJumpWeek] = useState<string>('')
+  const [showAssessment, setShowAssessment] = useState(false)
 
   // Load collapsed state from localStorage
   useEffect(() => {
@@ -700,6 +866,36 @@ export default function SeasonDetailPage({ params }: { params: { id: string } })
     }
   }
 
+  // Team average scores from evaluations
+  const teamAvgScores = useMemo(() => {
+    if (allEvals.length === 0) return {}
+    const skillKeys = ['ball_handling', 'shooting', 'passing', 'defense', 'athleticism', 'coachability']
+    const sums: Record<string, number[]> = {}
+    for (const sk of skillKeys) sums[sk] = []
+    for (const ev of allEvals) {
+      for (const sk of skillKeys) {
+        const val = (ev as unknown as Record<string, unknown>)[sk]
+        if (typeof val === 'number') sums[sk].push(val)
+      }
+    }
+    const avgs: Record<string, number> = {}
+    for (const sk of skillKeys) {
+      if (sums[sk].length > 0) {
+        avgs[sk] = sums[sk].reduce((a, b) => a + b, 0) / sums[sk].length
+      }
+    }
+    return avgs
+  }, [allEvals])
+
+  // Recent focus areas (last 4 weeks)
+  const recentFocusAreas = useMemo(() => {
+    if (!plan || !currentWeek) return []
+    const recent = plan.weekly_focus_rotation.filter(
+      w => w.week >= Math.max(1, currentWeek - 3) && w.week <= currentWeek
+    )
+    return Array.from(new Set(recent.flatMap(w => [w.primaryFocus, w.secondaryFocus]).filter(Boolean)))
+  }, [plan, currentWeek])
+
   if (isLoading) {
     return (
       <div>
@@ -782,13 +978,24 @@ export default function SeasonDetailPage({ params }: { params: { id: string } })
                 {startFmt} – {endFmt}
               </p>
             </div>
-            <Link
-              href={`/practice/season?edit=${plan.id}`}
-              className="text-xs px-3 py-2 rounded-lg transition-opacity hover:opacity-80 flex-shrink-0"
-              style={{ color: 'rgba(241,245,249,0.5)', border: '1px solid rgba(241,245,249,0.12)' }}
-            >
-              Edit plan
-            </Link>
+            <div className="flex gap-2 flex-shrink-0">
+              {currentWeek && currentWeek >= 3 && (
+                <button
+                  onClick={() => setShowAssessment(true)}
+                  className="text-xs px-3 py-2 rounded-lg transition-opacity hover:opacity-80"
+                  style={{ color: '#3A86FF', border: '1px solid rgba(58,134,255,0.3)', backgroundColor: 'rgba(58,134,255,0.08)' }}
+                >
+                  🤖 AI Assessment
+                </button>
+              )}
+              <Link
+                href={`/practice/season?edit=${plan.id}`}
+                className="text-xs px-3 py-2 rounded-lg transition-opacity hover:opacity-80"
+                style={{ color: 'rgba(241,245,249,0.5)', border: '1px solid rgba(241,245,249,0.12)' }}
+              >
+                Edit plan
+              </Link>
+            </div>
           </div>
 
           {/* Stats row */}
@@ -913,6 +1120,18 @@ export default function SeasonDetailPage({ params }: { params: { id: string } })
           </div>
         )}
       </div>
+
+      {/* Mid-Season Assessment Modal */}
+      {showAssessment && currentWeek && (
+        <AssessmentModal
+          plan={plan}
+          currentWeek={currentWeek}
+          teamAvgScores={teamAvgScores}
+          recentFocusAreas={recentFocusAreas}
+          practiceCount={seasonPractices.length}
+          onClose={() => setShowAssessment(false)}
+        />
+      )}
     </div>
   )
 }

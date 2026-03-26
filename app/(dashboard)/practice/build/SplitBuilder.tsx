@@ -346,6 +346,299 @@ function SortableItem({
   )
 }
 
+/* ── AI Tab ─────────────────────────────────────────────────────────────────── */
+const AI_FOCUS_OPTS = ['Ball Handling', 'Shooting', 'Passing', 'Defense', 'Conditioning', 'Team Play']
+const AI_AGE_GROUPS = ['U8', 'U10', 'U12', 'U14', 'U16', 'U18', 'Adult']
+const AI_SKILL_LEVELS = ['Beginner', 'Intermediate', 'Advanced', 'Mixed']
+const AI_THEMES = ['', 'Accountability', 'Teamwork', 'Grit', 'Empathy', 'Leadership', 'Integrity', 'Resilience', 'Gratitude']
+
+type AiState = 'config' | 'loading' | 'preview' | 'error'
+
+interface AiGeneratedDrill {
+  uid: string
+  drillId: string
+  name: string
+  category: string
+  categoryColor: string
+  durationMins: number
+  notes: string
+}
+
+function AiTab({
+  totalMins,
+  onAddItems,
+}: {
+  totalMins: number
+  onAddItems: (items: PlanDrill[]) => void
+}) {
+  const [aiState, setAiState] = useState<AiState>('config')
+  const [ageGroup, setAgeGroup] = useState('U12')
+  const [skillLevel, setSkillLevel] = useState('Mixed')
+  const [duration, setDuration] = useState(60)
+  const [aiFocus, setAiFocus] = useState<string[]>([])
+  const [theme, setTheme] = useState('')
+  const [generated, setGenerated] = useState<AiGeneratedDrill[]>([])
+  const [added, setAdded] = useState<Set<string>>(new Set())
+  const [errorMsg, setErrorMsg] = useState('')
+
+  function toggleFocusAi(f: string) {
+    setAiFocus(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f])
+  }
+
+  async function handleGenerate() {
+    setAiState('loading')
+    setErrorMsg('')
+    try {
+      const res = await fetch('/api/ai/practice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ageGroup,
+          skillLevel,
+          durationMins: duration,
+          focusAreas: aiFocus,
+          characterTheme: theme || undefined,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Generation failed')
+      }
+      const data = await res.json()
+      setGenerated(data.drills ?? [])
+      setAdded(new Set())
+      setAiState('preview')
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Something went wrong')
+      setAiState('error')
+    }
+  }
+
+  function addOne(drill: AiGeneratedDrill) {
+    onAddItems([{
+      uid: drill.uid,
+      drillId: drill.drillId,
+      name: drill.name,
+      category: drill.category,
+      categoryColor: drill.categoryColor,
+      durationMins: drill.durationMins,
+      notes: drill.notes,
+    }])
+    setAdded(prev => new Set(Array.from(prev).concat(drill.uid)))
+  }
+
+  function addAll() {
+    const toAdd = generated.filter(d => !added.has(d.uid))
+    onAddItems(toAdd.map(d => ({
+      uid: d.uid,
+      drillId: d.drillId,
+      name: d.name,
+      category: d.category,
+      categoryColor: d.categoryColor,
+      durationMins: d.durationMins,
+      notes: d.notes,
+    })))
+    setAdded(new Set(generated.map(d => d.uid)))
+  }
+
+  if (aiState === 'loading') {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#3A86FF', borderTopColor: 'transparent' }} />
+        <p className="text-sm font-semibold text-sp-text">Generating your practice plan…</p>
+        <p className="text-xs" style={{ color: 'rgba(241,245,249,0.35)' }}>This takes about 10 seconds</p>
+      </div>
+    )
+  }
+
+  if (aiState === 'error') {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4 px-4 text-center">
+        <div className="text-2xl">⚠️</div>
+        <p className="text-sm font-semibold text-sp-text">Generation failed</p>
+        <p className="text-xs" style={{ color: 'rgba(241,245,249,0.4)' }}>{errorMsg}</p>
+        <button
+          onClick={() => setAiState('config')}
+          className="px-4 py-2 text-sm font-semibold rounded-lg"
+          style={{ backgroundColor: 'rgba(58,134,255,0.15)', color: '#3A86FF', border: '1px solid rgba(58,134,255,0.3)' }}
+        >
+          Try Again
+        </button>
+      </div>
+    )
+  }
+
+  if (aiState === 'preview') {
+    const allAdded = generated.every(d => added.has(d.uid))
+    return (
+      <div className="flex flex-col h-full overflow-hidden">
+        <div className="flex items-center justify-between px-1 pb-2 flex-shrink-0">
+          <p className="text-xs font-semibold text-sp-text">{generated.length} drills generated</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setAiState('config')}
+              className="text-xs px-2 py-1 rounded-lg"
+              style={{ color: 'rgba(241,245,249,0.4)', backgroundColor: 'rgba(241,245,249,0.05)' }}
+            >
+              ← Redo
+            </button>
+            {!allAdded && (
+              <button
+                onClick={addAll}
+                className="text-xs px-3 py-1 rounded-lg font-semibold"
+                style={{ backgroundColor: 'rgba(58,134,255,0.15)', color: '#3A86FF', border: '1px solid rgba(58,134,255,0.25)' }}
+              >
+                + Add All
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto space-y-2">
+          {generated.map(drill => {
+            const isAdded = added.has(drill.uid)
+            return (
+              <div
+                key={drill.uid}
+                className="rounded-xl p-3"
+                style={{
+                  backgroundColor: isAdded ? 'rgba(34,197,94,0.05)' : '#0E1520',
+                  border: `1px solid ${isAdded ? 'rgba(34,197,94,0.2)' : 'rgba(241,245,249,0.07)'}`,
+                }}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span
+                        className="text-xs font-bold px-1.5 py-0.5 rounded"
+                        style={{ backgroundColor: `${drill.categoryColor}18`, color: drill.categoryColor }}
+                      >
+                        {drill.category}
+                      </span>
+                      <span className="text-xs" style={{ color: 'rgba(241,245,249,0.35)' }}>⏱ {drill.durationMins}m</span>
+                    </div>
+                    <p className="text-sm font-medium text-sp-text truncate">{drill.name}</p>
+                    {drill.notes && (
+                      <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'rgba(241,245,249,0.4)' }}>{drill.notes}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => !isAdded && addOne(drill)}
+                    className="flex-shrink-0 text-xs px-2 py-1 rounded-lg font-semibold transition-colors"
+                    style={{
+                      backgroundColor: isAdded ? 'rgba(34,197,94,0.15)' : 'rgba(58,134,255,0.12)',
+                      color: isAdded ? '#22C55E' : '#3A86FF',
+                      border: `1px solid ${isAdded ? 'rgba(34,197,94,0.25)' : 'rgba(58,134,255,0.2)'}`,
+                      cursor: isAdded ? 'default' : 'pointer',
+                    }}
+                  >
+                    {isAdded ? '✓' : '+'}
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  // Config state
+  const _ = totalMins // suppress unused warning — totalMins used for context
+  void _
+  return (
+    <div className="overflow-y-auto h-full space-y-4 pr-1">
+      <div>
+        <p className="text-xs font-semibold mb-2 uppercase tracking-wide" style={{ color: 'rgba(241,245,249,0.35)' }}>Focus Areas</p>
+        <div className="flex flex-wrap gap-1.5">
+          {AI_FOCUS_OPTS.map(f => {
+            const active = aiFocus.includes(f)
+            return (
+              <button
+                key={f}
+                onClick={() => toggleFocusAi(f)}
+                className="px-2.5 py-1 rounded-full text-xs font-medium transition-all"
+                style={{
+                  backgroundColor: active ? 'rgba(58,134,255,0.15)' : 'rgba(241,245,249,0.06)',
+                  color: active ? '#3A86FF' : 'rgba(241,245,249,0.45)',
+                  border: `1px solid ${active ? 'rgba(58,134,255,0.35)' : 'rgba(241,245,249,0.08)'}`,
+                }}
+              >
+                {f}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <p className="text-xs mb-1" style={{ color: 'rgba(241,245,249,0.45)' }}>Age Group</p>
+          <select
+            value={ageGroup}
+            onChange={e => setAgeGroup(e.target.value)}
+            className="sp-input text-xs py-1.5"
+            style={{ colorScheme: 'dark' }}
+          >
+            {AI_AGE_GROUPS.map(g => <option key={g} value={g} style={{ backgroundColor: '#0E1520' }}>{g}</option>)}
+          </select>
+        </div>
+        <div>
+          <p className="text-xs mb-1" style={{ color: 'rgba(241,245,249,0.45)' }}>Skill Level</p>
+          <select
+            value={skillLevel}
+            onChange={e => setSkillLevel(e.target.value)}
+            className="sp-input text-xs py-1.5"
+            style={{ colorScheme: 'dark' }}
+          >
+            {AI_SKILL_LEVELS.map(l => <option key={l} value={l} style={{ backgroundColor: '#0E1520' }}>{l}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <p className="text-xs mb-1" style={{ color: 'rgba(241,245,249,0.45)' }}>Duration (min)</p>
+          <input
+            type="number"
+            min={20}
+            max={120}
+            step={5}
+            value={duration}
+            onChange={e => setDuration(parseInt(e.target.value) || 60)}
+            className="sp-input text-xs py-1.5"
+          />
+        </div>
+        <div>
+          <p className="text-xs mb-1" style={{ color: 'rgba(241,245,249,0.45)' }}>Character Theme</p>
+          <select
+            value={theme}
+            onChange={e => setTheme(e.target.value)}
+            className="sp-input text-xs py-1.5"
+            style={{ colorScheme: 'dark' }}
+          >
+            {AI_THEMES.map(t => <option key={t} value={t} style={{ backgroundColor: '#0E1520' }}>{t || 'None'}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <button
+        onClick={handleGenerate}
+        disabled={aiFocus.length === 0}
+        className="w-full py-2.5 text-sm font-semibold rounded-xl transition-opacity hover:opacity-85 disabled:opacity-40"
+        style={{ backgroundColor: '#3A86FF', color: '#fff' }}
+      >
+        🤖 Generate Practice Plan
+      </button>
+
+      {aiFocus.length === 0 && (
+        <p className="text-xs text-center" style={{ color: 'rgba(241,245,249,0.3)' }}>
+          Select at least one focus area
+        </p>
+      )}
+    </div>
+  )
+}
+
 /* ── Library tabs ───────────────────────────────────────────────────────────── */
 type LibTab = 'drills' | 'games' | 'plays' | 'ai'
 
@@ -788,13 +1081,10 @@ export default function SplitBuilder({
           {activeTab === 'games' && <GamesTab onAdd={addItem} onInfo={setDetailItem} />}
           {activeTab === 'plays' && <PlaysTab onAdd={addItem} onInfo={setDetailItem} />}
           {activeTab === 'ai' && (
-            <div className="flex flex-col items-center justify-center h-full text-center px-6">
-              <div className="text-3xl mb-3">🤖</div>
-              <p className="text-sm font-semibold text-sp-text mb-2">AI Practice Builder</p>
-              <p className="text-xs" style={{ color: 'rgba(241,245,249,0.35)' }}>
-                Use the Season Plan generator to create full AI-generated practices. In-builder AI suggestions coming soon.
-              </p>
-            </div>
+            <AiTab
+              totalMins={totalMins}
+              onAddItems={(newItems) => setItems(prev => [...prev, ...newItems])}
+            />
           )}
         </div>
       </div>

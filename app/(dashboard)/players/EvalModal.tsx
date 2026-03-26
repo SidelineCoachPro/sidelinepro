@@ -49,6 +49,8 @@ export default function EvalModal({ players, evals, initialPlayerId, onClose }: 
   const [notes, setNotes]     = useState('')
   const [evalDate, setEvalDate] = useState(() => new Date().toISOString().split('T')[0])
   const [error, setError]     = useState('')
+  const [insights, setInsights] = useState<{ insights: string[]; topPriority: string } | null>(null)
+  const [loadingInsights, setLoadingInsights] = useState(false)
 
   const { mutateAsync, isPending } = useCreateEvaluation()
 
@@ -96,7 +98,28 @@ export default function EvalModal({ players, evals, initialPlayerId, onClose }: 
         notes:         notes.trim() || null,
         evaluated_at:  new Date(evalDate + 'T12:00:00').toISOString(),
       })
-      onClose()
+      // Fetch AI insights after saving
+      setLoadingInsights(true)
+      const player = players.find(p => p.id === selectedId)
+      const playerName = player ? `${player.first_name} ${player.last_name ?? ''}`.trim() : 'Player'
+      const prevEval = evals
+        .filter(e => e.player_id === selectedId)
+        .sort((a, b) => new Date(b.evaluated_at).getTime() - new Date(a.evaluated_at).getTime())[0]
+      const previousScores = prevEval
+        ? { ball_handling: prevEval.ball_handling, shooting: prevEval.shooting, passing: prevEval.passing, defense: prevEval.defense, athleticism: prevEval.athleticism, coachability: prevEval.coachability }
+        : undefined
+      try {
+        const res = await fetch('/api/ai/eval-insights', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ playerName, skillScores: vals, isFirstEval: !prevEval, previousScores }),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setInsights(data)
+        }
+      } catch { /* insights are optional — don't block close */ }
+      setLoadingInsights(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save evaluation')
     }
@@ -179,36 +202,69 @@ export default function EvalModal({ players, evals, initialPlayerId, onClose }: 
           )}
         </div>
 
-        {/* Live summary footer */}
+        {/* Footer */}
         <div
           className="flex-shrink-0 px-6 py-4"
           style={{ borderTop: '1px solid rgba(241,245,249,0.07)' }}
         >
-          {/* Grade + insight */}
-          <div
-            className="flex items-start gap-3 px-4 py-3 rounded-xl mb-4"
-            style={{ backgroundColor: 'rgba(14,207,176,0.08)', border: '1px solid rgba(14,207,176,0.2)' }}
-          >
-            <div className="text-center flex-shrink-0">
-              <div className="text-2xl font-bold" style={{ color: gColor }}>{grade}</div>
-              <div className="text-xs" style={{ color: 'rgba(241,245,249,0.4)' }}>{avg.toFixed(1)}</div>
+          {/* AI insights panel — shown after save */}
+          {loadingInsights && (
+            <div className="flex items-center gap-2 mb-4 px-4 py-3 rounded-xl" style={{ backgroundColor: 'rgba(58,134,255,0.08)', border: '1px solid rgba(58,134,255,0.2)' }}>
+              <div className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin flex-shrink-0" style={{ borderColor: '#3A86FF', borderTopColor: 'transparent' }} />
+              <p className="text-xs" style={{ color: 'rgba(241,245,249,0.5)' }}>Generating AI insights…</p>
             </div>
-            <p className="text-sm" style={{ color: 'rgba(241,245,249,0.6)' }}>{insight}</p>
-          </div>
+          )}
+          {insights && !loadingInsights && (
+            <div className="mb-4 rounded-xl overflow-hidden" style={{ border: '1px solid rgba(58,134,255,0.25)' }}>
+              <div className="px-4 py-2" style={{ backgroundColor: 'rgba(58,134,255,0.12)' }}>
+                <p className="text-xs font-semibold" style={{ color: '#3A86FF' }}>🤖 AI Coaching Insights</p>
+              </div>
+              <div className="px-4 py-3 space-y-2" style={{ backgroundColor: 'rgba(58,134,255,0.05)' }}>
+                {insights.insights.map((ins, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <span className="text-xs flex-shrink-0 mt-0.5" style={{ color: '#3A86FF' }}>→</span>
+                    <p className="text-xs leading-relaxed" style={{ color: 'rgba(241,245,249,0.65)' }}>{ins}</p>
+                  </div>
+                ))}
+                {insights.topPriority && (
+                  <div className="mt-2 pt-2" style={{ borderTop: '1px solid rgba(58,134,255,0.15)' }}>
+                    <p className="text-xs font-semibold mb-0.5" style={{ color: 'rgba(241,245,249,0.35)' }}>NEXT PRACTICE PRIORITY</p>
+                    <p className="text-xs" style={{ color: 'rgba(241,245,249,0.6)' }}>{insights.topPriority}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Grade + insight (shown before save) */}
+          {!insights && !loadingInsights && (
+            <div
+              className="flex items-start gap-3 px-4 py-3 rounded-xl mb-4"
+              style={{ backgroundColor: 'rgba(14,207,176,0.08)', border: '1px solid rgba(14,207,176,0.2)' }}
+            >
+              <div className="text-center flex-shrink-0">
+                <div className="text-2xl font-bold" style={{ color: gColor }}>{grade}</div>
+                <div className="text-xs" style={{ color: 'rgba(241,245,249,0.4)' }}>{avg.toFixed(1)}</div>
+              </div>
+              <p className="text-sm" style={{ color: 'rgba(241,245,249,0.6)' }}>{insight}</p>
+            </div>
+          )}
 
           {/* Buttons */}
           <div className="flex items-center justify-end gap-3">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium rounded-lg" style={{ color: 'rgba(241,245,249,0.5)' }}>
-              Cancel
+              {insights ? 'Done' : 'Cancel'}
             </button>
-            <button
-              onClick={handleSave}
-              disabled={isPending || !selectedId}
-              className="px-5 py-2 text-sm font-semibold rounded-lg disabled:opacity-50 transition-opacity hover:opacity-85"
-              style={{ backgroundColor: '#F7620A', color: '#fff' }}
-            >
-              {isPending ? 'Saving...' : 'Save Evaluation'}
-            </button>
+            {!insights && !loadingInsights && (
+              <button
+                onClick={handleSave}
+                disabled={isPending || !selectedId}
+                className="px-5 py-2 text-sm font-semibold rounded-lg disabled:opacity-50 transition-opacity hover:opacity-85"
+                style={{ backgroundColor: '#F7620A', color: '#fff' }}
+              >
+                {isPending ? 'Saving...' : 'Save Evaluation'}
+              </button>
+            )}
           </div>
         </div>
       </div>

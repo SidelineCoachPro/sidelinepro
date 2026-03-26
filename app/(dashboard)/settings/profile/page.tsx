@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { signOut } from '@/app/actions/auth'
 import { useProfile, useUpdateProfile, useUploadAvatar, useDeleteAvatar } from '@/hooks/useProfile'
+import { useAIUsage } from '@/hooks/useAIUsage'
 import { processAvatar } from '@/lib/imageUtils'
 
 /* ── helpers ─────────────────────────────────────────────────────────────── */
@@ -55,6 +56,7 @@ export default function ProfileSettingsPage() {
   const updateProfile = useUpdateProfile()
   const uploadAvatar  = useUploadAvatar()
   const deleteAvatar  = useDeleteAvatar()
+  const { data: aiUsage } = useAIUsage()
 
   // Photo state
   const fileInputRef   = useRef<HTMLInputElement>(null)
@@ -397,7 +399,55 @@ export default function ProfileSettingsPage() {
         </div>
       </SectionCard>
 
-      {/* ── 4. Account ──────────────────────────────────────────── */}
+      {/* ── 4. AI Usage ─────────────────────────────────────────── */}
+      <SectionCard title="🤖 AI Usage" accent="#3A86FF">
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="rounded-xl p-4 text-center" style={{ backgroundColor: 'rgba(58,134,255,0.06)', border: '1px solid rgba(58,134,255,0.2)' }}>
+              <p className="text-3xl font-bold" style={{ color: '#3A86FF' }}>{aiUsage?.thisMonth ?? 0}</p>
+              <p className="text-xs mt-1" style={{ color: 'rgba(241,245,249,0.4)' }}>This Month</p>
+            </div>
+            <div className="rounded-xl p-4 text-center" style={{ backgroundColor: 'rgba(241,245,249,0.04)', border: '1px solid rgba(241,245,249,0.08)' }}>
+              <p className="text-3xl font-bold text-sp-text">{aiUsage?.total ?? 0}</p>
+              <p className="text-xs mt-1" style={{ color: 'rgba(241,245,249,0.4)' }}>Total Calls</p>
+            </div>
+          </div>
+
+          {aiUsage && Object.keys(aiUsage.byFeature).length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'rgba(241,245,249,0.3)' }}>By Feature</p>
+              <div className="space-y-1.5">
+                {Object.entries(aiUsage.byFeature)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([feature, count]) => {
+                    const label = ({
+                      practice: 'Practice Builder',
+                      devplan: 'Dev Plan',
+                      suggest: 'Drill Suggestions',
+                      weekly_arc: 'Weekly Arc',
+                      assessment: 'Mid-Season Assessment',
+                      eval_insights: 'Eval Insights',
+                    }[feature] ?? feature)
+                    return (
+                      <div key={feature} className="flex items-center justify-between">
+                        <span className="text-xs" style={{ color: 'rgba(241,245,249,0.55)' }}>{label}</span>
+                        <span className="text-xs font-semibold" style={{ color: '#3A86FF' }}>{count}</span>
+                      </div>
+                    )
+                  })}
+              </div>
+            </div>
+          )}
+
+          {(!aiUsage || aiUsage.total === 0) && (
+            <p className="text-xs" style={{ color: 'rgba(241,245,249,0.3)' }}>
+              No AI features used yet. Try the AI Practice Builder or Dev Plan generator!
+            </p>
+          )}
+        </div>
+      </SectionCard>
+
+      {/* ── 5. Account ──────────────────────────────────────────── */}
       <SectionCard title="⚙️ Account Settings">
         <div className="space-y-3">
           <div>
