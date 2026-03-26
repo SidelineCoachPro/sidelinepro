@@ -31,6 +31,7 @@ type DetailItem =
   | { type: 'drill'; data: Drill }
   | { type: 'game'; data: PracticeGame }
   | { type: 'play'; data: Play }
+  | { type: 'custom'; data: PlanDrill }
   | null
 
 function lookupDetail(drillId: string): DetailItem {
@@ -49,7 +50,11 @@ function lookupDetail(drillId: string): DetailItem {
 }
 
 /* ── Detail Modal ────────────────────────────────────────────────────────────── */
-function DetailModal({ detail, onClose }: { detail: DetailItem; onClose: () => void }) {
+function DetailModal({ detail, onClose, onUpdateCustom }: {
+  detail: DetailItem
+  onClose: () => void
+  onUpdateCustom?: (uid: string, updates: Partial<PlanDrill>) => void
+}) {
   if (!detail) return null
 
   return (
@@ -80,8 +85,66 @@ function DetailModal({ detail, onClose }: { detail: DetailItem; onClose: () => v
         {detail.type === 'play' && (
           <PlayDetail play={detail.data} />
         )}
+        {detail.type === 'custom' && onUpdateCustom && (
+          <CustomDetail item={detail.data} onUpdate={onUpdateCustom} onClose={onClose} />
+        )}
       </div>
     </div>
+  )
+}
+
+function CustomDetail({ item, onUpdate, onClose }: {
+  item: PlanDrill
+  onUpdate: (uid: string, updates: Partial<PlanDrill>) => void
+  onClose: () => void
+}) {
+  const [editName, setEditName] = useState(item.name)
+  const [editNotes, setEditNotes] = useState(item.notes ?? '')
+
+  function handleSave() {
+    onUpdate(item.uid, { name: editName.trim() || item.name, notes: editNotes.trim() || undefined })
+    onClose()
+  }
+
+  return (
+    <>
+      <div className="flex items-start gap-3 mb-5 pr-8">
+        <div className="w-3 h-3 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: '#8B5CF6' }} />
+        <div>
+          <span className="text-xs px-1.5 py-0.5 rounded font-bold mb-1 inline-block" style={{ backgroundColor: 'rgba(139,92,246,0.15)', color: '#8B5CF6' }}>CUSTOM</span>
+          <h2 className="text-lg font-bold text-sp-text">{item.name}</h2>
+        </div>
+      </div>
+      <div className="space-y-4">
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-widest mb-1.5 block" style={{ color: 'rgba(241,245,249,0.3)' }}>Name</label>
+          <input
+            value={editName}
+            onChange={e => setEditName(e.target.value)}
+            className="w-full text-sm rounded-lg"
+            style={{ backgroundColor: 'rgba(241,245,249,0.07)', border: '1px solid rgba(241,245,249,0.12)', color: '#F1F5F9', padding: '8px 10px', outline: 'none' }}
+          />
+        </div>
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-widest mb-1.5 block" style={{ color: 'rgba(241,245,249,0.3)' }}>Notes</label>
+          <textarea
+            value={editNotes}
+            onChange={e => setEditNotes(e.target.value)}
+            placeholder="Instructions, objectives, setup notes…"
+            rows={5}
+            className="w-full text-sm rounded-lg resize-none"
+            style={{ backgroundColor: 'rgba(241,245,249,0.07)', border: '1px solid rgba(241,245,249,0.12)', color: '#F1F5F9', padding: '8px 10px', outline: 'none' }}
+          />
+        </div>
+        <button
+          onClick={handleSave}
+          className="w-full py-2.5 text-sm font-semibold rounded-lg transition-opacity hover:opacity-85"
+          style={{ backgroundColor: '#8B5CF6', color: '#fff' }}
+        >
+          Save Changes
+        </button>
+      </div>
+    </>
   )
 }
 
@@ -248,7 +311,7 @@ function SortableItem({
       <button {...listeners} className="cursor-grab active:cursor-grabbing flex-shrink-0" style={{ color: 'rgba(241,245,249,0.2)', touchAction: 'none' }}>
         <GripIcon />
       </button>
-      <button onClick={isCustom ? undefined : onInfo} className={`flex-1 min-w-0 text-left ${isCustom ? 'cursor-default' : 'group'}`} title={isCustom ? undefined : 'View details'}>
+      <button onClick={onInfo} className="flex-1 min-w-0 text-left group" title={isCustom ? 'Edit details' : 'View details'}>
         <div className="flex items-center gap-1.5">
           {item.drillId?.startsWith('game-') && (
             <span className="text-xs px-1 py-0.5 rounded font-bold" style={{ backgroundColor: 'rgba(14,207,176,0.15)', color: '#0ECFB0' }}>GAME</span>
@@ -260,7 +323,9 @@ function SortableItem({
             <span className="text-xs px-1 py-0.5 rounded font-bold" style={{ backgroundColor: 'rgba(139,92,246,0.15)', color: '#8B5CF6' }}>CUSTOM</span>
           )}
           <span className="text-sm font-medium text-sp-text truncate group-hover:text-orange-400 transition-colors">{item.name}</span>
-          {!isCustom && <span className="text-xs opacity-0 group-hover:opacity-60 transition-opacity flex-shrink-0" style={{ color: '#F7620A' }}>ℹ</span>}
+          <span className="text-xs opacity-0 group-hover:opacity-60 transition-opacity flex-shrink-0" style={{ color: isCustom ? '#8B5CF6' : '#F7620A' }}>
+            {isCustom ? '✏' : 'ℹ'}
+          </span>
         </div>
         <span className="text-xs" style={{ color: 'rgba(241,245,249,0.35)' }}>
           {CATEGORY_LABELS[item.category] ?? item.category}
@@ -426,6 +491,7 @@ export default function SplitBuilder({
   const [customFormOpen, setCustomFormOpen] = useState(false)
   const [customName, setCustomName] = useState('')
   const [customDuration, setCustomDuration] = useState(10)
+  const [customNotes, setCustomNotes] = useState('')
   const sensors = useSensors(useSensor(PointerSensor))
 
   const totalMins = items.reduce((s, d) => s + d.durationMins, 0)
@@ -451,10 +517,16 @@ export default function SplitBuilder({
       category: 'custom',
       categoryColor: '#8B5CF6',
       durationMins: customDuration,
+      notes: customNotes.trim() || undefined,
     })
     setCustomName('')
     setCustomDuration(10)
+    setCustomNotes('')
     setCustomFormOpen(false)
+  }
+
+  function updateCustomItem(uid: string, updates: Partial<PlanDrill>) {
+    setItems(prev => prev.map(d => d.uid === uid ? { ...d, ...updates } : d))
   }
 
   function toggleFocus(f: string) {
@@ -568,7 +640,13 @@ export default function SplitBuilder({
                       item={item}
                       onRemove={() => setItems(prev => prev.filter(d => d.uid !== item.uid))}
                       onDurationChange={m => setItems(prev => prev.map(d => d.uid === item.uid ? { ...d, durationMins: m } : d))}
-                      onInfo={() => setDetailItem(lookupDetail(item.drillId))}
+                      onInfo={() => {
+                        if (item.drillId?.startsWith('custom-')) {
+                          setDetailItem({ type: 'custom', data: item })
+                        } else {
+                          setDetailItem(lookupDetail(item.drillId))
+                        }
+                      }}
                     />
                   ))}
                 </div>
@@ -597,26 +675,36 @@ export default function SplitBuilder({
           )}
         </div>
         {customFormOpen && (
-          <div className="mt-2 flex flex-wrap items-center gap-2 p-2 rounded-lg" style={{ backgroundColor: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)' }}>
-            <input
-              autoFocus
-              value={customName}
-              onChange={e => setCustomName(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') addCustomItem(); if (e.key === 'Escape') { setCustomFormOpen(false); setCustomName(''); setCustomDuration(10) } }}
-              placeholder="Item name…"
-              className="flex-1 text-sm rounded-md"
-              style={{ backgroundColor: 'rgba(241,245,249,0.07)', border: '1px solid rgba(241,245,249,0.1)', color: '#F1F5F9', padding: '5px 8px', outline: 'none', minWidth: 120 }}
-            />
-            <div className="flex items-center gap-1">
+          <div className="mt-2 p-3 rounded-lg space-y-2" style={{ backgroundColor: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)' }}>
+            <div className="flex flex-wrap items-center gap-2">
               <input
-                type="number" min={1} max={120}
-                value={customDuration}
-                onChange={e => setCustomDuration(Math.max(1, parseInt(e.target.value) || 1))}
-                className="w-12 text-center text-sm rounded-md"
-                style={{ backgroundColor: 'rgba(241,245,249,0.07)', border: '1px solid rgba(241,245,249,0.1)', color: '#F1F5F9', padding: '5px 4px', outline: 'none' }}
+                autoFocus
+                value={customName}
+                onChange={e => setCustomName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Escape') { setCustomFormOpen(false); setCustomName(''); setCustomDuration(10); setCustomNotes('') } }}
+                placeholder="Item name…"
+                className="flex-1 text-sm rounded-md"
+                style={{ backgroundColor: 'rgba(241,245,249,0.07)', border: '1px solid rgba(241,245,249,0.1)', color: '#F1F5F9', padding: '5px 8px', outline: 'none', minWidth: 120 }}
               />
-              <span className="text-xs" style={{ color: 'rgba(241,245,249,0.3)' }}>m</span>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number" min={1} max={120}
+                  value={customDuration}
+                  onChange={e => setCustomDuration(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-12 text-center text-sm rounded-md"
+                  style={{ backgroundColor: 'rgba(241,245,249,0.07)', border: '1px solid rgba(241,245,249,0.1)', color: '#F1F5F9', padding: '5px 4px', outline: 'none' }}
+                />
+                <span className="text-xs" style={{ color: 'rgba(241,245,249,0.3)' }}>m</span>
+              </div>
             </div>
+            <textarea
+              value={customNotes}
+              onChange={e => setCustomNotes(e.target.value)}
+              placeholder="Notes (optional) — instructions, objectives, setup…"
+              rows={2}
+              className="w-full text-sm rounded-md resize-none"
+              style={{ backgroundColor: 'rgba(241,245,249,0.07)', border: '1px solid rgba(241,245,249,0.1)', color: '#F1F5F9', padding: '5px 8px', outline: 'none' }}
+            />
             <div className="flex gap-1">
               <button
                 onClick={addCustomItem}
@@ -627,7 +715,7 @@ export default function SplitBuilder({
                 Add
               </button>
               <button
-                onClick={() => { setCustomFormOpen(false); setCustomName(''); setCustomDuration(10) }}
+                onClick={() => { setCustomFormOpen(false); setCustomName(''); setCustomDuration(10); setCustomNotes('') }}
                 className="text-xs px-3 py-1.5 rounded-lg transition-opacity hover:opacity-70"
                 style={{ backgroundColor: 'rgba(241,245,249,0.06)', color: 'rgba(241,245,249,0.45)', border: '1px solid rgba(241,245,249,0.08)' }}
               >
@@ -712,7 +800,7 @@ export default function SplitBuilder({
       </div>
 
       {/* Detail modal */}
-      {detailItem && <DetailModal detail={detailItem} onClose={() => setDetailItem(null)} />}
+      {detailItem && <DetailModal detail={detailItem} onClose={() => setDetailItem(null)} onUpdateCustom={updateCustomItem} />}
     </div>
   )
 }
