@@ -26,6 +26,7 @@ import {
   useCreateDevPlanV2,
   useRestoreDevPlan,
   blankPlanContent,
+  normalizePlanContent,
   genId,
   timeAgo,
   type PlanContent,
@@ -82,7 +83,7 @@ export default function DevPlanPage({ params }: { params: { id: string } }) {
   // Initialize localContent from plan
   useEffect(() => {
     if (plan) {
-      setLocalContent(plan.content ?? blankPlanContent())
+      setLocalContent(normalizePlanContent(plan.content))
       setPlanName(plan.plan_name ?? 'Development Plan')
       setIsDirty(false)
     }
@@ -587,10 +588,10 @@ function PlanEditor({
         <div style={sectionStyle}>
           <p style={sectionLabel}>Strengths</p>
           <EditableList
-            items={content.strengths}
-            onAdd={text => updateContent(prev => ({ ...prev, strengths: [...prev.strengths, { id: genId(), text }] }))}
-            onEdit={(id, text) => updateContent(prev => ({ ...prev, strengths: prev.strengths.map(s => s.id === id ? { ...s, text } : s) }))}
-            onDelete={id => updateContent(prev => ({ ...prev, strengths: prev.strengths.filter(s => s.id !== id) }))}
+            items={content.strengths ?? []}
+            onAdd={text => updateContent(prev => ({ ...prev, strengths: [...(prev.strengths ?? []), { id: genId(), text }] }))}
+            onEdit={(id, text) => updateContent(prev => ({ ...prev, strengths: (prev.strengths ?? []).map(s => s.id === id ? { ...s, text } : s) }))}
+            onDelete={id => updateContent(prev => ({ ...prev, strengths: (prev.strengths ?? []).filter(s => s.id !== id) }))}
             onReorder={items => updateContent(prev => ({ ...prev, strengths: items }))}
             addLabel="+ Add strength"
             itemStyle="line"
@@ -599,10 +600,10 @@ function PlanEditor({
         <div style={sectionStyle}>
           <p style={sectionLabel}>Areas for Growth</p>
           <EditableList
-            items={content.areasForGrowth}
-            onAdd={text => updateContent(prev => ({ ...prev, areasForGrowth: [...prev.areasForGrowth, { id: genId(), text }] }))}
-            onEdit={(id, text) => updateContent(prev => ({ ...prev, areasForGrowth: prev.areasForGrowth.map(s => s.id === id ? { ...s, text } : s) }))}
-            onDelete={id => updateContent(prev => ({ ...prev, areasForGrowth: prev.areasForGrowth.filter(s => s.id !== id) }))}
+            items={content.areasForGrowth ?? []}
+            onAdd={text => updateContent(prev => ({ ...prev, areasForGrowth: [...(prev.areasForGrowth ?? []), { id: genId(), text }] }))}
+            onEdit={(id, text) => updateContent(prev => ({ ...prev, areasForGrowth: (prev.areasForGrowth ?? []).map(s => s.id === id ? { ...s, text } : s) }))}
+            onDelete={id => updateContent(prev => ({ ...prev, areasForGrowth: (prev.areasForGrowth ?? []).filter(s => s.id !== id) }))}
             onReorder={items => updateContent(prev => ({ ...prev, areasForGrowth: items }))}
             addLabel="+ Add area"
             itemStyle="line"
@@ -631,8 +632,8 @@ function PlanEditor({
           </button>
         </div>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleGoalDragEnd}>
-          <SortableContext items={content.goals.map(g => g.id)} strategy={verticalListSortingStrategy}>
-            {content.goals.map((goal, i) => (
+          <SortableContext items={(content.goals ?? []).map(g => g.id)} strategy={verticalListSortingStrategy}>
+            {(content.goals ?? []).map((goal, i) => (
               <GoalCard
                 key={goal.id}
                 goal={goal}
@@ -654,10 +655,10 @@ function PlanEditor({
       <div style={sectionStyle}>
         <p style={sectionLabel}>Coaching Cues</p>
         <EditableList
-          items={content.coachingCues}
-          onAdd={text => updateContent(prev => ({ ...prev, coachingCues: [...prev.coachingCues, { id: genId(), text }] }))}
-          onEdit={(id, text) => updateContent(prev => ({ ...prev, coachingCues: prev.coachingCues.map(c => c.id === id ? { ...c, text } : c) }))}
-          onDelete={id => updateContent(prev => ({ ...prev, coachingCues: prev.coachingCues.filter(c => c.id !== id) }))}
+          items={content.coachingCues ?? []}
+          onAdd={text => updateContent(prev => ({ ...prev, coachingCues: [...(prev.coachingCues ?? []), { id: genId(), text }] }))}
+          onEdit={(id, text) => updateContent(prev => ({ ...prev, coachingCues: (prev.coachingCues ?? []).map(c => c.id === id ? { ...c, text } : c) }))}
+          onDelete={id => updateContent(prev => ({ ...prev, coachingCues: (prev.coachingCues ?? []).filter(c => c.id !== id) }))}
           onReorder={items => updateContent(prev => ({ ...prev, coachingCues: items }))}
           addLabel="+ Add coaching cue"
           itemStyle="line"

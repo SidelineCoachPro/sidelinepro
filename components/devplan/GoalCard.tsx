@@ -54,16 +54,17 @@ export default function GoalCard({ goal, index, onUpdate, onDelete, disabled = f
   }
 
   function handleDrillToggle(drillId: string) {
-    const existing = goal.suggestedDrillIds.includes(drillId)
+    const ids = goal.suggestedDrillIds ?? []
+    const existing = ids.includes(drillId)
     update({
       suggestedDrillIds: existing
-        ? goal.suggestedDrillIds.filter(id => id !== drillId)
-        : [...goal.suggestedDrillIds, drillId],
+        ? ids.filter(id => id !== drillId)
+        : [...ids, drillId],
     })
   }
 
   function handleRemoveDrill(drillId: string) {
-    update({ suggestedDrillIds: goal.suggestedDrillIds.filter(id => id !== drillId) })
+    update({ suggestedDrillIds: (goal.suggestedDrillIds ?? []).filter(id => id !== drillId) })
   }
 
   function toggleComplete() {
@@ -178,7 +179,7 @@ export default function GoalCard({ goal, index, onUpdate, onDelete, disabled = f
           Action Steps
         </p>
         <EditableList
-          items={goal.actionSteps}
+          items={goal.actionSteps ?? []}
           onAdd={handleActionAdd}
           onEdit={handleActionEdit}
           onDelete={handleActionDelete}
@@ -205,7 +206,7 @@ export default function GoalCard({ goal, index, onUpdate, onDelete, disabled = f
           Suggested Drills
         </p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {goal.suggestedDrillIds.map(drillId => {
+          {(goal.suggestedDrillIds ?? []).map(drillId => {
             const drill = drills.find(d => d.id === drillId)
             if (!drill) return null
             return (

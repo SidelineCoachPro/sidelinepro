@@ -77,6 +77,24 @@ export function blankPlanContent(): PlanContent {
   }
 }
 
+export function normalizePlanContent(content: PlanContent | null | undefined): PlanContent {
+  if (!content) return blankPlanContent()
+  return {
+    summary: content.summary ?? '',
+    strengths: content.strengths ?? [],
+    areasForGrowth: content.areasForGrowth ?? [],
+    goals: (content.goals ?? []).map(g => ({
+      ...g,
+      actionSteps: g.actionSteps ?? [],
+      suggestedDrillIds: g.suggestedDrillIds ?? [],
+      isComplete: g.isComplete ?? false,
+    })),
+    coachingCues: content.coachingCues ?? [],
+    parentSummary: content.parentSummary ?? '',
+    weeklyFocus: content.weeklyFocus ?? '',
+  }
+}
+
 // ── Hooks ────────────────────────────────────────────────────────────────────
 
 export function useDevPlan(playerId: string | undefined) {
