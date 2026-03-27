@@ -205,13 +205,17 @@ export function useCreateDevPlanV2() {
   const create = useCallback(
     async (
       playerId: string,
-      coachId: string,
+      _coachId: string,
       content: PlanContent,
       opts?: { created_by?: string; focus_skill?: string; plan_name?: string },
     ) => {
       setIsCreating(true)
       try {
         const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        const coachId = user?.id
+        if (!coachId) throw new Error('Not authenticated')
+
         await supabase
           .from('dev_plans')
           .update({ is_active: false })
@@ -228,7 +232,7 @@ export function useCreateDevPlanV2() {
             content,
             plan_name: opts?.plan_name ?? 'Development Plan',
             created_by: opts?.created_by ?? 'ai',
-            focus_skill: opts?.focus_skill ?? null,
+            focus_skill: opts?.focus_skill ?? 'general',
             last_edited_at: new Date().toISOString(),
             edit_count: 0,
           })
