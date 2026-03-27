@@ -6,6 +6,8 @@ import { usePlayers, type Player } from '@/hooks/usePlayers'
 import { useEvaluations, type Evaluation } from '@/hooks/useEvaluations'
 import { useCreateDevPlan, type DevPlan } from '@/hooks/useDevPlans'
 import { useParentContacts } from '@/hooks/useParentContacts'
+import { useProfile } from '@/hooks/useProfile'
+import { createClient } from '@/lib/supabase/client'
 import AddPlayerModal from './AddPlayerModal'
 import EvalModal from './EvalModal'
 import PlayerDetailModal from './PlayerDetailModal'
@@ -14,6 +16,19 @@ import HeatmapView from './HeatmapView'
 import ProgressView from './ProgressView'
 import { PLAYER_COLORS, SKILLS, gradeColor, playerInitials, formatEvalDate, type SkillKey } from './evalUtils'
 import PlayersSubNav from './components/PlayersSubNav'
+
+function getWeakestSkill(scores: Record<string, number | null>): string {
+  let weakest = 'ball_handling'
+  let lowestVal = Infinity
+  for (const skill of SKILLS) {
+    const val = (scores[skill.key] ?? 10) as number
+    if (val < lowestVal) {
+      lowestVal = val
+      weakest = skill.key
+    }
+  }
+  return weakest
+}
 
 const barlow = Barlow_Condensed({ subsets: ['latin'], weight: '900' })
 
@@ -195,10 +210,89 @@ export default function PlayersPage() {
   const { data: evals   = [], isLoading: loadingEvals   } = useEvaluations()
   const { data: allContacts = [] }                        = useParentContacts()
   const { mutateAsync: createDevPlan } = useCreateDevPlan()
+  const { data: profile } = useProfile()
 
   const [generatingPlanFor, setGeneratingPlanFor] = useState<string | null>(null)
   const [activePlan, setActivePlan]               = useState<DevPlan | null>(null)
   const [planError, setPlanError]                 = useState('')
+
+  // Bulk generation state
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set())
+  const [bulkGenModal, setBulkGenModal] = useState(false)
+  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; currentName: string; done: boolean } | null>(null)
+
+  function toggleSelectPlayer(id: string) {
+    setSelectedPlayerIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function cancelSelectMode() {
+    setSelectMode(false)
+    setSelectedPlayerIds(new Set())
+  }
+
+  async function handleBulkGenerate() {
+    setBulkGenModal(false)
+    const ids = Array.from(selectedPlayerIds)
+    setBulkProgress({ current: 0, total: ids.length, currentName: '', done: false })
+    for (let i = 0; i < ids.length; i++) {
+      const p = players.find(pl => pl.id === ids[i])
+      if (!p) continue
+      setBulkProgress({ current: i + 1, total: ids.length, currentName: `${p.first_name} ${p.last_name ?? ''}`, done: false })
+      const playerEvals = evals.filter(e => e.player_id === p.id)
+      const latestEval = playerEvals.sort((a, b) => new Date(b.evaluated_at).getTime() - new Date(a.evaluated_at).getTime())[0]
+      const scores = latestEval ? {
+        ball_handling: latestEval.ball_handling,
+        shooting: latestEval.shooting,
+        passing: latestEval.passing,
+        defense: latestEval.defense,
+        athleticism: latestEval.athleticism,
+        coachability: latestEval.coachability,
+      } : {}
+      const focusSkill = latestEval ? getWeakestSkill(scores as Record<string, number | null>) : 'ball_handling'
+      const skillScores = Object.fromEntries(
+        SKILLS.map(s => [s.key, (scores[s.key as SkillKey] ?? 5) as number])
+      )
+      try {
+        const res = await fetch('/api/ai/devplan?format=v2', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            playerName: `${p.first_name} ${p.last_name ?? ''}`.trim(),
+            focusSkill,
+            skillScores,
+          }),
+        })
+        const data = await res.json()
+        if (data.content) {
+          const supabase = createClient()
+          await supabase.from('dev_plans').update({ is_active: false }).eq('player_id', p.id).eq('is_active', true)
+          await supabase.from('dev_plans').insert({
+            player_id: p.id,
+            coach_id: profile?.id,
+            version: 1,
+            is_active: true,
+            content: data.content,
+            plan_name: 'Season Plan',
+            created_by: 'ai',
+            last_edited_at: new Date().toISOString(),
+            edit_count: 0,
+          })
+        }
+      } catch {
+        // continue on error
+      }
+      await new Promise(r => setTimeout(r, 500))
+    }
+    setBulkProgress(prev => prev ? { ...prev, done: true } : null)
+    setSelectMode(false)
+    setSelectedPlayerIds(new Set())
+  }
 
   async function handleGeneratePlan(playerId: string) {
     if (generatingPlanFor) return
@@ -289,13 +383,25 @@ export default function PlayersPage() {
             {players.length} {players.length === 1 ? 'player' : 'players'} on roster
           </p>
         </div>
-        <button
-          onClick={() => setModal({ type: 'addPlayer' })}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg transition-opacity hover:opacity-85"
-          style={{ backgroundColor: '#F7620A', color: '#fff' }}
-        >
-          <span>+</span> Add Player
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              if (selectMode) cancelSelectMode()
+              else setSelectMode(true)
+            }}
+            className="px-3 py-2 text-sm font-medium rounded-lg transition-opacity hover:opacity-75"
+            style={{ background: selectMode ? 'rgba(247,98,10,0.1)' : 'rgba(241,245,249,0.06)', color: selectMode ? '#F7620A' : 'rgba(241,245,249,0.6)', border: `1px solid ${selectMode ? 'rgba(247,98,10,0.2)' : 'rgba(241,245,249,0.1)'}` }}
+          >
+            {selectMode ? 'Cancel' : 'Select'}
+          </button>
+          <button
+            onClick={() => setModal({ type: 'addPlayer' })}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg transition-opacity hover:opacity-85"
+            style={{ backgroundColor: '#F7620A', color: '#fff' }}
+          >
+            <span>+</span> Add Player
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -360,16 +466,43 @@ export default function PlayersPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredPlayers.map((player) => {
               const idx = players.indexOf(player)
+              const isSelected = selectedPlayerIds.has(player.id)
               return (
-                <PlayerCard
-                  key={player.id}
-                  player={player}
-                  index={idx}
-                  evals={evals}
-                  contactCount={allContacts.filter(c => c.player_id === player.id).length}
-                  onDetail={() => setModal({ type: 'detail', playerId: player.id })}
-                  onEval={e => { e.stopPropagation(); setModal({ type: 'eval', playerId: player.id }) }}
-                />
+                <div key={player.id} style={{ position: 'relative' }}>
+                  {selectMode && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: 10,
+                        right: 10,
+                        zIndex: 10,
+                        width: 22,
+                        height: 22,
+                        borderRadius: 6,
+                        background: isSelected ? '#F7620A' : 'rgba(241,245,249,0.1)',
+                        border: `2px solid ${isSelected ? '#F7620A' : 'rgba(241,245,249,0.25)'}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                      }}
+                      onClick={e => { e.stopPropagation(); toggleSelectPlayer(player.id) }}
+                    >
+                      {isSelected && <span style={{ color: '#fff', fontSize: 12, lineHeight: 1 }}>✓</span>}
+                    </div>
+                  )}
+                  <PlayerCard
+                    player={player}
+                    index={idx}
+                    evals={evals}
+                    contactCount={allContacts.filter(c => c.player_id === player.id).length}
+                    onDetail={() => {
+                      if (selectMode) { toggleSelectPlayer(player.id); return }
+                      setModal({ type: 'detail', playerId: player.id })
+                    }}
+                    onEval={e => { e.stopPropagation(); if (!selectMode) setModal({ type: 'eval', playerId: player.id }) }}
+                  />
+                </div>
               )
             })}
           </div>
@@ -424,6 +557,120 @@ export default function PlayersPage() {
           />
         ) : null
       })()}
+
+      {/* Floating bulk action bar */}
+      {selectMode && selectedPlayerIds.size > 0 && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: '#1a2535',
+            border: '1px solid rgba(241,245,249,0.1)',
+            borderRadius: 12,
+            padding: '12px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+            zIndex: 40,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <span style={{ color: '#F1F5F9', fontSize: 13, fontWeight: 600 }}>
+            {selectedPlayerIds.size} player{selectedPlayerIds.size !== 1 ? 's' : ''} selected
+          </span>
+          <button
+            onClick={() => setBulkGenModal(true)}
+            style={{
+              padding: '7px 14px',
+              borderRadius: 8,
+              background: 'rgba(139,92,246,0.15)',
+              border: '1px solid rgba(139,92,246,0.3)',
+              color: '#8B5CF6',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            ✦ Generate Dev Plans
+          </button>
+          <button
+            onClick={cancelSelectMode}
+            style={{ padding: '7px 14px', borderRadius: 8, background: 'transparent', border: '1px solid rgba(241,245,249,0.1)', color: 'rgba(241,245,249,0.5)', fontSize: 12, cursor: 'pointer' }}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {/* Bulk gen confirm modal */}
+      {bulkGenModal && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          onClick={e => { if (e.target === e.currentTarget) setBulkGenModal(false) }}
+        >
+          <div style={{ background: '#1a2535', borderRadius: 12, border: '1px solid rgba(241,245,249,0.1)', padding: 24, maxWidth: 400, width: '100%' }}>
+            <h3 style={{ color: '#F1F5F9', fontWeight: 700, fontSize: 16, marginBottom: 8 }}>Generate Dev Plans</h3>
+            <p style={{ color: 'rgba(241,245,249,0.5)', fontSize: 13, marginBottom: 20 }}>
+              This will generate AI development plans for {selectedPlayerIds.size} player{selectedPlayerIds.size !== 1 ? 's' : ''}. Existing active plans will be replaced.
+            </p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setBulkGenModal(false)} style={{ padding: '8px 16px', borderRadius: 8, background: 'transparent', border: '1px solid rgba(241,245,249,0.1)', color: 'rgba(241,245,249,0.5)', fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={handleBulkGenerate} style={{ padding: '8px 16px', borderRadius: 8, background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.4)', color: '#8B5CF6', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                Generate All
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk progress modal */}
+      {bulkProgress && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ background: '#1a2535', borderRadius: 12, border: '1px solid rgba(241,245,249,0.1)', padding: 28, maxWidth: 380, width: '100%' }}>
+            {bulkProgress.done ? (
+              <>
+                <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>✓</div>
+                  <h3 style={{ color: '#22C55E', fontWeight: 700, fontSize: 16 }}>Done!</h3>
+                  <p style={{ color: 'rgba(241,245,249,0.5)', fontSize: 13, marginTop: 6 }}>
+                    Generated {bulkProgress.total} development plan{bulkProgress.total !== 1 ? 's' : ''}.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setBulkProgress(null)}
+                  style={{ width: '100%', padding: '9px 16px', borderRadius: 8, background: '#F7620A', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', border: 'none' }}
+                >
+                  Done
+                </button>
+              </>
+            ) : (
+              <>
+                <h3 style={{ color: '#F1F5F9', fontWeight: 700, fontSize: 15, marginBottom: 4 }}>Generating Plans...</h3>
+                <p style={{ color: 'rgba(241,245,249,0.5)', fontSize: 13, marginBottom: 16 }}>
+                  {bulkProgress.currentName && `Working on ${bulkProgress.currentName}...`}
+                </p>
+                <div style={{ background: 'rgba(241,245,249,0.07)', borderRadius: 8, height: 8, overflow: 'hidden', marginBottom: 8 }}>
+                  <div
+                    style={{
+                      height: '100%',
+                      width: `${(bulkProgress.current / bulkProgress.total) * 100}%`,
+                      background: '#F7620A',
+                      borderRadius: 8,
+                      transition: 'width 0.4s ease',
+                    }}
+                  />
+                </div>
+                <p style={{ color: 'rgba(241,245,249,0.35)', fontSize: 12, textAlign: 'right' }}>
+                  {bulkProgress.current} / {bulkProgress.total}
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

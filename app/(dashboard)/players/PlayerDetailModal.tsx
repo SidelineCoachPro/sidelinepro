@@ -1,10 +1,12 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { type Player } from '@/hooks/usePlayers'
 import { useDeletePlayer } from '@/hooks/usePlayers'
 import { type Evaluation } from '@/hooks/useEvaluations'
 import { useDevPlans, useCreateDevPlan, type DevPlan } from '@/hooks/useDevPlans'
+import { useDevPlan } from '@/hooks/useDevPlan'
 import { useParentContacts, useDeleteParentContact, type ParentContact } from '@/hooks/useParentContacts'
 import { PLAYER_COLORS, SKILLS, gradeColor, aiInsight, playerInitials, formatEvalDate, type SkillKey } from './evalUtils'
 import DevPlanModal from './DevPlanModal'
@@ -37,6 +39,7 @@ export default function PlayerDetailModal({ player, playerIndex, evals, onClose,
   const { mutateAsync: deletePlayer, isPending: isDeleting } = useDeletePlayer()
   const { mutateAsync: createDevPlan } = useCreateDevPlan()
   const { data: devPlans = [] } = useDevPlans(player.id)
+  const { data: activePlanV2 } = useDevPlan(player.id)
 
   const { data: contacts = [] }                           = useParentContacts(player.id)
   const { mutateAsync: deleteContact, isPending: deleting } = useDeleteParentContact()
@@ -210,6 +213,27 @@ export default function PlayerDetailModal({ player, playerIndex, evals, onClose,
                   <div>
                     <p className="text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: 'rgba(241,245,249,0.35)' }}>Coach Notes</p>
                     <p className="text-sm" style={{ color: 'rgba(241,245,249,0.6)' }}>{latest.notes}</p>
+                  </div>
+                )}
+
+                {/* Active V2 Dev Plan banner */}
+                {activePlanV2 && (
+                  <div style={{ background: 'rgba(247,98,10,0.08)', border: '1px solid rgba(247,98,10,0.2)', borderRadius: 8, padding: '12px 16px', marginBottom: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ color: '#F1F5F9', fontSize: 13, fontWeight: 600 }}>
+                          📋 {activePlanV2.plan_name || 'Dev Plan'} · v{activePlanV2.version}
+                        </div>
+                        {activePlanV2.content?.goals && (
+                          <div style={{ color: 'rgba(241,245,249,0.5)', fontSize: 12, marginTop: 2 }}>
+                            {activePlanV2.content.goals.filter(g => g.isComplete).length} of {activePlanV2.content.goals.length} goals complete
+                          </div>
+                        )}
+                      </div>
+                      <Link href={`/players/${player.id}/devplan`} style={{ fontSize: 12, color: '#F7620A' }} onClick={onClose}>
+                        Open Plan →
+                      </Link>
+                    </div>
                   </div>
                 )}
 

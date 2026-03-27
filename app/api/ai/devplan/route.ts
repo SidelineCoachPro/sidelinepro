@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAIClient, AI_MODEL } from '@/lib/ai/client'
-import { buildDevPlanPrompt } from '@/lib/ai/prompts'
+import { buildDevPlanPrompt, buildDevPlanContentPrompt } from '@/lib/ai/prompts'
 import { trackAIUsage } from '@/lib/ai/usage'
 import { type DevPlanDrill } from '@/hooks/useDevPlans'
 
@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const format = req.nextUrl.searchParams.get('format')
     const { playerName, focusSkill, skillScores } = await req.json()
 
     if (!playerName || !focusSkill) {
@@ -25,6 +26,37 @@ export async function POST(req: NextRequest) {
     }
 
     const client = getAIClient()
+
+    // ── V2 format: return structured PlanContent ──────────────────────────
+    if (format === 'v2') {
+      const prompt = buildDevPlanContentPrompt(playerName, focusSkill, skillScores ?? {})
+      let parsedContent: unknown = null
+
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const response = await client.messages.create({
+          model: AI_MODEL,
+          max_tokens: 2500,
+          messages: [{ role: 'user', content: prompt }],
+        })
+
+        const textBlock = response.content.find(b => b.type === 'text')
+        if (!textBlock || textBlock.type !== 'text') continue
+
+        try {
+          parsedContent = parseJSON(textBlock.text)
+          if (parsedContent && typeof parsedContent === 'object') break
+        } catch {
+          if (attempt === 1) throw new Error('Invalid JSON from AI')
+        }
+      }
+
+      if (!parsedContent) throw new Error('No valid response from AI')
+
+      await trackAIUsage('devplan')
+      return NextResponse.json({ content: parsedContent })
+    }
+
+    // ── Legacy format ─────────────────────────────────────────────────────
     const prompt = buildDevPlanPrompt(playerName, focusSkill, skillScores ?? {})
 
     let parsed: ParsedPlan | null = null

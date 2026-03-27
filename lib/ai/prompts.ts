@@ -75,6 +75,78 @@ Return ONLY a valid JSON object with this exact structure:
 No other text outside the JSON.`
 }
 
+// ── Dev Plan V2 Content prompt ────────────────────────────────────────────────
+
+export function buildDevPlanContentPrompt(
+  playerName: string,
+  focusSkill: string,
+  skillScores: Record<string, number>,
+): string {
+  const skillList = Object.entries(skillScores)
+    .map(([k, v]) => `${k.replace('_', ' ')}: ${v}/10`)
+    .join(', ')
+
+  return `You are an expert youth basketball coach creating a personalized development plan.
+
+Player: ${playerName}
+Focus skill: ${focusSkill.replace('_', ' ')}
+Current skill scores: ${skillList}
+
+Return ONLY a valid JSON object with exactly this structure:
+
+{
+  "summary": "2-3 sentence player overview describing their current level and potential",
+  "strengths": [
+    { "id": "s1", "text": "Strength description" },
+    { "id": "s2", "text": "Strength description" },
+    { "id": "s3", "text": "Strength description" }
+  ],
+  "areasForGrowth": [
+    { "id": "g1", "text": "Area for growth" },
+    { "id": "g2", "text": "Area for growth" }
+  ],
+  "goals": [
+    {
+      "id": "goal1",
+      "title": "Goal title",
+      "description": "What this goal achieves and why it matters",
+      "targetSkill": "${focusSkill}",
+      "actionSteps": [
+        { "id": "a1", "text": "Specific action step" },
+        { "id": "a2", "text": "Specific action step" },
+        { "id": "a3", "text": "Specific action step" }
+      ],
+      "suggestedDrillIds": [],
+      "timeframeWeeks": 4,
+      "isComplete": false
+    },
+    {
+      "id": "goal2",
+      "title": "Goal title",
+      "description": "What this goal achieves and why it matters",
+      "targetSkill": "${focusSkill}",
+      "actionSteps": [
+        { "id": "b1", "text": "Specific action step" },
+        { "id": "b2", "text": "Specific action step" },
+        { "id": "b3", "text": "Specific action step" }
+      ],
+      "suggestedDrillIds": [],
+      "timeframeWeeks": 6,
+      "isComplete": false
+    }
+  ],
+  "coachingCues": [
+    { "id": "c1", "text": "Short coaching cue for practice" },
+    { "id": "c2", "text": "Short coaching cue for practice" },
+    { "id": "c3", "text": "Short coaching cue for practice" }
+  ],
+  "parentSummary": "3-4 sentences written warmly to the parent explaining the plan, what to expect, and how they can support their child at home",
+  "weeklyFocus": "One sentence describing the main focus for this week's practice"
+}
+
+Return ONLY valid JSON. No other text outside the JSON object.`
+}
+
 // ── Drill Suggestions prompt ──────────────────────────────────────────────────
 
 export function buildSuggestPrompt(
