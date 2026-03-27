@@ -18,7 +18,6 @@ import {
 } from '@dnd-kit/sortable'
 import { usePlayers } from '@/hooks/usePlayers'
 import { useEvaluations } from '@/hooks/useEvaluations'
-import { useProfile } from '@/hooks/useProfile'
 import {
   useDevPlan,
   useDevPlanHistory,
@@ -65,7 +64,6 @@ export default function DevPlanPage({ params }: { params: { id: string } }) {
   const { archive, isArchiving } = useArchiveDevPlan()
   const { isCreating } = useCreateDevPlanV2()
   const { restore, isRestoring } = useRestoreDevPlan()
-  const { data: profile } = useProfile()
   const { data: evals = [] } = useEvaluations()
   const qc = useQueryClient()
 
