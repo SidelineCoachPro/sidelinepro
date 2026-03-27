@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import {
   DndContext,
@@ -62,10 +63,11 @@ export default function DevPlanPage({ params }: { params: { id: string } }) {
   const { data: history = [] } = useDevPlanHistory(params.id)
   const { update: debouncedUpdate, isSaving, lastSaved } = useUpdateDevPlan()
   const { archive, isArchiving } = useArchiveDevPlan()
-  const { create: createPlan, isCreating } = useCreateDevPlanV2()
+  const { isCreating } = useCreateDevPlanV2()
   const { restore, isRestoring } = useRestoreDevPlan()
   const { data: profile } = useProfile()
   const { data: evals = [] } = useEvaluations()
+  const qc = useQueryClient()
 
   const [activeTab, setActiveTab] = useState<'plan' | 'history'>('plan')
   const [localContent, setLocalContent] = useState<PlanContent | null>(null)
@@ -181,12 +183,23 @@ export default function DevPlanPage({ params }: { params: { id: string } }) {
       if (!res.ok) throw new Error('Failed to generate plan')
       const data = await res.json()
       if (!data.content) throw new Error('No content returned')
-      const coachId = profile?.id ?? ''
-      await createPlan(params.id, coachId, data.content, {
-        created_by: 'ai',
-        focus_skill: focusSkill,
-        plan_name: 'AI Development Plan',
+      const createRes = await fetch('/api/devplan/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          playerId: params.id,
+          content: data.content,
+          createdBy: 'ai',
+          focusSkill,
+          planName: 'AI Development Plan',
+        }),
       })
+      if (!createRes.ok) {
+        const createErr = await createRes.json().catch(() => ({}))
+        throw new Error(createErr.error ?? 'Failed to save plan')
+      }
+      qc.invalidateQueries({ queryKey: ['devplan', params.id] })
+      qc.invalidateQueries({ queryKey: ['devplan-history', params.id] })
     } catch (err) {
       setGenError(err instanceof Error ? err.message : 'Failed to generate plan')
     } finally {
@@ -197,11 +210,22 @@ export default function DevPlanPage({ params }: { params: { id: string } }) {
   async function handleBuildManual() {
     try {
       const blankContent = blankPlanContent()
-      const coachId = profile?.id ?? ''
-      await createPlan(params.id, coachId, blankContent, {
-        created_by: 'manual',
-        plan_name: 'Development Plan',
+      const createRes = await fetch('/api/devplan/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          playerId: params.id,
+          content: blankContent,
+          createdBy: 'manual',
+          planName: 'Development Plan',
+        }),
       })
+      if (!createRes.ok) {
+        const createErr = await createRes.json().catch(() => ({}))
+        throw new Error(createErr.error ?? 'Failed to create plan')
+      }
+      qc.invalidateQueries({ queryKey: ['devplan', params.id] })
+      qc.invalidateQueries({ queryKey: ['devplan-history', params.id] })
     } catch (err) {
       setGenError(err instanceof Error ? err.message : 'Failed to create plan')
     }
