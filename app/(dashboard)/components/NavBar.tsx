@@ -8,6 +8,7 @@ import { signOut } from '@/app/actions/auth'
 import { useTeam } from '@/lib/teamContext'
 import { useTeams, useCreateTeam, type Team } from '@/hooks/useTeams'
 import { useProfile } from '@/hooks/useProfile'
+import { useSubscription } from '@/hooks/useSubscription'
 
 const barlow = Barlow_Condensed({ subsets: ['latin'], weight: '900' })
 
@@ -254,6 +255,7 @@ export default function NavBar({ email }: { email: string }) {
   const { data: teams = [] }              = useTeams()
   const activeTeam = teams.find(t => t.id === activeTeamId) ?? null
   const { data: profile }                 = useProfile()
+  const sub                               = useSubscription()
 
   // Reset stale team selection (team was deleted)
   useEffect(() => {
@@ -467,6 +469,14 @@ export default function NavBar({ email }: { email: string }) {
                     <Link href="/settings/profile#pdf" onClick={() => setUserDropdownOpen(false)} className="flex items-center gap-2 px-3 py-2.5 text-sm transition-colors hover:bg-white/5" style={{ color: 'rgba(241,245,249,0.7)' }}>
                       📄 PDF Settings
                     </Link>
+                    <Link href="/settings/billing" onClick={() => setUserDropdownOpen(false)} className="flex items-center justify-between px-3 py-2.5 text-sm transition-colors hover:bg-white/5" style={{ color: 'rgba(241,245,249,0.7)' }}>
+                      <span>💳 Billing</span>
+                      {!sub.isLoading && sub.tier !== 'free' && (
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 10, background: sub.tier === 'elite' ? 'rgba(139,92,246,0.2)' : 'rgba(247,98,10,0.2)', color: sub.tier === 'elite' ? '#8B5CF6' : '#F7620A', textTransform: 'uppercase' }}>
+                          {sub.tier}
+                        </span>
+                      )}
+                    </Link>
                   </div>
                   {/* Sign out */}
                   <form action={signOut}>
@@ -575,6 +585,9 @@ export default function NavBar({ email }: { email: string }) {
               </div>
               <Link href="/settings/profile" onClick={() => setMobileOpen(false)} className="block text-sm mb-2" style={{ color: 'rgba(241,245,249,0.5)' }}>
                 Profile Settings
+              </Link>
+              <Link href="/settings/billing" onClick={() => setMobileOpen(false)} className="block text-sm mb-2" style={{ color: 'rgba(241,245,249,0.5)' }}>
+                Billing
               </Link>
               <form action={signOut}>
                 <button type="submit" className="text-sm font-medium text-sp-orange">Sign out</button>
