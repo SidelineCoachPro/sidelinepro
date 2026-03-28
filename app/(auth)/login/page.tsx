@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 const schema = z.object({
@@ -18,8 +18,10 @@ type FormData = z.infer<typeof schema>
 const labelStyle = { color: 'rgba(241,245,249,0.7)', fontSize: '13px', fontWeight: 500 }
 const mutedStyle = { color: 'rgba(241,245,249,0.45)' }
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const next = searchParams.get('next') ?? '/dashboard'
   const [authError, setAuthError] = useState<string | null>(null)
 
   const {
@@ -39,7 +41,7 @@ export default function LoginPage() {
       setAuthError(error.message)
       return
     }
-    router.push('/dashboard')
+    router.push(next)
     router.refresh()
   }
 
@@ -113,5 +115,13 @@ export default function LoginPage() {
         </p>
       </div>
     </>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }
