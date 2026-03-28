@@ -22,7 +22,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No billing account found' }, { status: 404 })
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? req.nextUrl.origin
+    const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? 'localhost:3000'
+    const proto = req.headers.get('x-forwarded-proto') ?? 'https'
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? `${proto}://${host}`
 
     const session = await stripe.billingPortal.sessions.create({
       customer: coach.stripe_customer_id,
