@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useSubscription } from '@/hooks/useSubscription'
@@ -22,7 +22,7 @@ const STATUS_COLOR: Record<string, string> = {
   inactive: 'rgba(241,245,249,0.4)',
 }
 
-export default function BillingPage() {
+function BillingPage() {
   const sub = useSubscription()
   const params = useSearchParams()
   const success = params.get('success') === '1'
@@ -155,5 +155,13 @@ export default function BillingPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function BillingPageWrapper() {
+  return (
+    <Suspense>
+      <BillingPage />
+    </Suspense>
   )
 }

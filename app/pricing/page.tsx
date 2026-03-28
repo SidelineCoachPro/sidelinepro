@@ -1,10 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { PRICING, type PriceKey } from '@/lib/subscription'
-// Note: PriceKey imported from subscription.ts to keep this client-safe
 import { useSubscription } from '@/hooks/useSubscription'
 
 // Re-export PRICING shape isn't on subscription.ts, so define here
@@ -74,7 +73,7 @@ const TIERS = [
   },
 ]
 
-export default function PricingPage() {
+function PricingPage() {
   const [annual, setAnnual] = useState(false)
   const [loading, setLoading] = useState<string | null>(null)
   const sub = useSubscription()
@@ -259,5 +258,13 @@ export default function PricingPage() {
         All plans include a 30-day money-back guarantee. Cancel anytime.
       </p>
     </div>
+  )
+}
+
+export default function PricingPageWrapper() {
+  return (
+    <Suspense>
+      <PricingPage />
+    </Suspense>
   )
 }
