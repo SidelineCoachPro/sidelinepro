@@ -91,6 +91,10 @@ function PricingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ priceKey, trial: withTrial }),
       })
+      if (res.status === 401) {
+        router.push(`/login?next=/pricing`)
+        return
+      }
       const { url, error } = await res.json()
       if (error || !url) throw new Error(error ?? 'No URL')
       window.location.href = url
