@@ -86,7 +86,7 @@ export default function BillingPage() {
 
         {sub.status === 'trialing' && trialEnd && (
           <div style={{ marginBottom: 16, padding: '10px 14px', borderRadius: 8, background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.2)', fontSize: 13, color: '#38BDF8' }}>
-            Your free trial ends on <strong>{trialEnd}</strong>. You won't be charged until then.
+            Your free trial ends on <strong>{trialEnd}</strong>. You won&apos;t be charged until then.
           </div>
         )}
 
