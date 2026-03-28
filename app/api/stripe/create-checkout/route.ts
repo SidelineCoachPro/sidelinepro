@@ -36,9 +36,7 @@ export async function POST(req: NextRequest) {
       await admin.from('coaches').update({ stripe_customer_id: customerId }).eq('id', user.id)
     }
 
-    const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? 'localhost:3000'
-    const proto = req.headers.get('x-forwarded-proto') ?? 'https'
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? `${proto}://${host}`
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://www.sidelinecoachpro.com'
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
